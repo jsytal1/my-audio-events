@@ -1,9 +1,9 @@
 package dev.syta.myaudioevents.data.local.entities
 
 
-data class AudioEventPeriod(
+data class Event(
     val id: Int,
     val startTime: Long,
     val endTime: Long,
-    val type: AudioEventClass,
+    val eventType: EventType,
 )

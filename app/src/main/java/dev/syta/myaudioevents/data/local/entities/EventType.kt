@@ -1,6 +1,6 @@
 package dev.syta.myaudioevents.data.local.entities
 
-data class AudioEventClass(
+data class EventType(
     val id: Int,
     val name: String
 )
