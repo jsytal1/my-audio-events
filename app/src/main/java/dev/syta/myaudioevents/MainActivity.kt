@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import dev.syta.myaudioevents.ui.MaeApp
 import dev.syta.myaudioevents.ui.rememberMaeAppState
-import dev.syta.myaudioevents.ui.theme.MyAudioEventsTheme
+import dev.syta.myaudioevents.ui.theme.MaeTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val appState = rememberMaeAppState()
-            MyAudioEventsTheme {
+            MaeTheme {
                 MaeApp(appState)
             }
         }
