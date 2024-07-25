@@ -10,8 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.syta.myaudioevents.designsystem.MaeBackground
 import dev.syta.myaudioevents.ui.DevicePreviews
-import dev.syta.myaudioevents.ui.components.MaeBackground
 import dev.syta.myaudioevents.ui.theme.MaeTheme
 
 

@@ -1,4 +1,4 @@
-package dev.syta.myaudioevents.ui.components
+package dev.syta.myaudioevents.designsystem
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
