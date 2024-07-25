@@ -20,6 +20,8 @@ fun MaeNavHost(
                     navController.navigate(Watch.route)
                 }
             )
+        }
+        composable(Watch.route) {
             WatchScreen()
         }
     }
