@@ -9,16 +9,19 @@ import androidx.compose.runtime.Composable
 internal interface LazyEventPlotItemProvider : LazyLayoutItemProvider {
     fun getMajorTickIndicesInRange(minMs: Long, maxMs: Long): Iterable<Int>
     fun getMinorTickIndicesInRange(minMs: Long, maxMs: Long): Iterable<Int>
+    fun getLabelIndices(): Iterable<Int>
 }
 
 @Composable
 internal fun lazyEventPlotItemProviderLambda(
+    data: List<List<PlotEventInfo>>,
     minMs: Long,
     maxMs: Long,
-    minorTick: @Composable (timeMs: Long) -> Unit,
-    majorTick: @Composable (timeMs: Long) -> Unit,
     minorTickMs: Int,
     majorTickMs: Int,
+    minorTick: @Composable (timeMs: Long) -> Unit,
+    majorTick: @Composable (timeMs: Long) -> Unit,
+    label: @Composable (index: Int) -> Unit,
 ): () -> LazyEventPlotItemProvider {
     val firstMinorTickMs = minMs / minorTickMs * minorTickMs
     val minorTickCount = (maxMs - firstMinorTickMs).toInt() / minorTickMs + 1
@@ -27,43 +30,59 @@ internal fun lazyEventPlotItemProviderLambda(
 
     return {
         LazyEventPlotItemProviderImpl(
+            data = data,
             firstMinorTickMs = firstMinorTickMs,
-            minorTickCount = minorTickCount,
-            minorTickMs = minorTickMs,
-            minorTick = minorTick,
             firstMajorTickMs = firstMajorTickMs,
+            minorTickCount = minorTickCount,
             majorTickCount = majorTickCount,
+            minorTickMs = minorTickMs,
             majorTickMs = majorTickMs,
-            majorTick = majorTick
+            minorTick = minorTick,
+            majorTick = majorTick,
+            label = label,
         )
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 private class LazyEventPlotItemProviderImpl(
+    private val data: List<List<PlotEventInfo>>,
     private val firstMinorTickMs: Long = 0,
-    private val minorTickCount: Int = 0,
-    private val minorTickMs: Int = 0,
-    private val minorTick: @Composable (timeMs: Long) -> Unit = {},
     private val firstMajorTickMs: Long = 0,
+    private val minorTickCount: Int = 0,
     private val majorTickCount: Int = 0,
+    private val minorTickMs: Int = 0,
     private val majorTickMs: Int = 0,
+    private val minorTick: @Composable (timeMs: Long) -> Unit = {},
     private val majorTick: @Composable (timeMs: Long) -> Unit = {},
+    private val label: @Composable (index: Int) -> Unit = {},
 ) : LazyEventPlotItemProvider {
+
+    private val majorTickIdxOffset = 0
+    private val minorTickIdxOffset = majorTickCount
+    private val labelIdxOffset = majorTickCount + minorTickCount
+    private val labelCount = data.size
+
     override val itemCount: Int
-        get() = minorTickCount + majorTickCount
+        get() = minorTickCount + majorTickCount + labelCount
 
     @Composable
     override fun Item(index: Int, key: Any) = when {
         index < majorTickCount -> {
-            val timeMs = firstMajorTickMs + index * majorTickMs
+            val relativeIdx = index - majorTickIdxOffset
+            val timeMs = firstMajorTickMs + relativeIdx * majorTickMs
             majorTick(timeMs)
         }
 
-        index < majorTickCount + minorTickCount -> {
-            val relativeIdx = index - majorTickCount
+        index < labelIdxOffset -> {
+            val relativeIdx = index - minorTickIdxOffset
             val timeMs = firstMinorTickMs + relativeIdx * minorTickMs
             minorTick(timeMs)
+        }
+
+        index < itemCount -> {
+            val relativeIdx = index - labelIdxOffset
+            label(relativeIdx)
         }
 
         else -> Unit
@@ -71,21 +90,24 @@ private class LazyEventPlotItemProviderImpl(
 
 
     override fun getContentType(index: Int): Any? = when {
-        index < majorTickCount -> "MajorTick"
-        index < majorTickCount + minorTickCount -> "MinorTick"
+        index < minorTickIdxOffset -> "MajorTick"
+        index < labelIdxOffset -> "MinorTick"
+        index < itemCount -> "Label"
         else -> null
     }
 
     override fun getKey(index: Int): Any = when {
-        index < majorTickCount -> {
+        index < minorTickIdxOffset -> {
             val tickMs = firstMajorTickMs + index * majorTickMs
             "MajorTick-$tickMs"
         }
 
-        index < minorTickCount -> {
+        index < labelIdxOffset -> {
             val tickMs = firstMinorTickMs + index * minorTickMs
             "MinorTick-$tickMs"
         }
+
+        index < itemCount -> "Label-$index"
 
         else -> getDefaultLazyLayoutKey(index)
     }
@@ -94,12 +116,16 @@ private class LazyEventPlotItemProviderImpl(
         key !is String -> -1
         key.startsWith("MajorTick-") -> {
             val timeMs = key.removePrefix("MajorTick-").toLong()
-            ((timeMs - firstMinorTickMs) / minorTickMs).toInt()
+            majorTickIdxOffset + ((timeMs - firstMinorTickMs) / minorTickMs).toInt()
         }
 
         key.startsWith("MinorTick-") -> {
             val timeMs = key.removePrefix("MinorTick-").toLong()
-            majorTickCount + ((timeMs - firstMinorTickMs) / minorTickMs).toInt()
+            minorTickIdxOffset + ((timeMs - firstMinorTickMs) / minorTickMs).toInt()
+        }
+
+        key.startsWith("Label-") -> {
+            labelIdxOffset + key.removePrefix("L-").toInt()
         }
 
         else -> -1
@@ -116,4 +142,6 @@ private class LazyEventPlotItemProviderImpl(
         val lastIndex = majorTickCount + ((maxMs - firstMinorTickMs) / minorTickMs).toInt()
         return firstIndex..lastIndex
     }
+
+    override fun getLabelIndices(): Iterable<Int> = labelIdxOffset until itemCount
 }

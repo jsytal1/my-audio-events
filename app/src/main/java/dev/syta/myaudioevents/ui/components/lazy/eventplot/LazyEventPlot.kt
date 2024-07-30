@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.syta.myaudioevents.data.local.entities.EventType
 import dev.syta.myaudioevents.designsystem.MaeBackground
 import dev.syta.myaudioevents.ui.theme.MaeTheme
 import java.text.SimpleDateFormat
@@ -27,8 +28,10 @@ import java.util.Locale
 fun LazyEventPlot(
     minMs: Long,
     maxMs: Long,
+    data: List<List<PlotEventInfo>>,
     minorTick: @Composable (timeMs: Long) -> Unit,
     majorTick: @Composable (timeMs: Long) -> Unit,
+    label: @Composable (index: Int) -> Unit,
     modifier: Modifier = Modifier,
     minorTickMs: Int = 5_000,
     majorTickMs: Int = 60_000,
@@ -37,10 +40,12 @@ fun LazyEventPlot(
 ) {
 
     val itemProviderLambda = lazyEventPlotItemProviderLambda(
+        data = data,
         minMs = minMs,
         maxMs = maxMs,
         minorTick = minorTick,
         majorTick = majorTick,
+        label = label,
         minorTickMs = minorTickMs,
         majorTickMs = majorTickMs,
     )
@@ -81,6 +86,15 @@ fun LazyEventPlot(
         val minorTickHeight = minorTickPlaceables.maxOf { it.height }
         totalHeight += minorTickHeight
 
+        val labelIndices = itemProviderLambda().getLabelIndices()
+        val labelPlaceables = labelIndices.map { index ->
+            measure(
+                index, Constraints()
+            ).single()
+        }
+        val labelWidth = labelPlaceables.maxOf { it.width }
+        totalHeight += labelPlaceables.sumOf { it.height }
+
         val totalWidth = minorTickWidthPx * (maxMs - minMs).toInt() / minorTickMs
         val layoutWidth = totalWidth.coerceAtMost(constraints.maxWidth)
 
@@ -112,25 +126,57 @@ fun LazyEventPlot(
                 xPosition += minorTickWidthPx
             }
 
+            yPosition += minorTickHeight
+            labelPlaceables.forEach { placeable ->
+                placeable.place(
+                    x = 0,
+                    y = yPosition
+                )
+                yPosition += placeable.height
+            }
+
         }
     }
 }
 
+data class PlotEventInfo(
+    val timeMs: Long,
+    val labelIdx: Int,
+)
 
 @Preview
 @Composable
 fun LazyEventPlotPreview() {
+
+    val eventTypes = listOf(
+        EventType(35, "Whistling"),
+        EventType(396, "Whistle"),
+        EventType(382, "Alarm"),
+        EventType(0, "Speech"),
+        EventType(67, "Animal"),
+        EventType(106, "Bird"),
+        EventType(103, "Wild animals"),
+        EventType(500, "Inside, small room"),
+        EventType(3, "Narration, monologue"),
+        EventType(68, "Domestic animals, pets"),
+    )
+
+
     MaeTheme {
         MaeBackground {
             Column {
                 LazyEventPlot(
                     minMs = 0,
                     maxMs = 240_000,
+                    data = List(eventTypes.size) { emptyList() },
                     minorTick = { timeMs ->
                         MinorTick(formattedTime(timeMs, ":ss"))
                     },
                     majorTick = { timeMs ->
                         MajorTick(formattedTime(timeMs, "HH:mm"))
+                    },
+                    label = { index ->
+                        Label(eventTypes[index].name)
                     },
                 )
             }
@@ -141,6 +187,17 @@ fun LazyEventPlotPreview() {
 fun formattedTime(timeMs: Long, format: String = "HH:mm:ss"): String {
     val dateFormat = SimpleDateFormat(format, Locale.getDefault())
     return dateFormat.format(timeMs)
+}
+
+@Composable
+fun Label(text: String) {
+    val color = MaterialTheme.colorScheme.onSurface
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        modifier = Modifier.padding(4.dp)
+    )
 }
 
 @Composable
@@ -157,6 +214,7 @@ fun MajorTick(time: String) {
 @Composable
 fun MinorTick(time: String) {
     val color = MaterialTheme.colorScheme.onSurface
+
     Text(text = time,
         style = MaterialTheme.typography.labelLarge,
         color = color,
@@ -169,5 +227,6 @@ fun MinorTick(time: String) {
                     strokeWidth = 1f
                 )
             }
-            .padding(8.dp))
+            .padding(8.dp)
+    )
 }
