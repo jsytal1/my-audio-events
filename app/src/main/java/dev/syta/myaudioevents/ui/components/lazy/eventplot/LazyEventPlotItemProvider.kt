@@ -9,7 +9,8 @@ import androidx.compose.runtime.Composable
 internal interface LazyEventPlotItemProvider : LazyLayoutItemProvider {
     fun getMajorTickIndicesInRange(minMs: Long, maxMs: Long): Iterable<Int>
     fun getMinorTickIndicesInRange(minMs: Long, maxMs: Long): Iterable<Int>
-    fun getLabelIndices(): Iterable<Int>
+    fun getLabelIndices(): Pair<Int, Iterable<Int>>
+    fun getMarkerIndicesInRange(labelIdx: Int, minMs: Long, maxMs: Long): Pair<Int, IntRange>
 }
 
 @Composable
@@ -19,9 +20,11 @@ internal fun lazyEventPlotItemProviderLambda(
     maxMs: Long,
     minorTickMs: Int,
     majorTickMs: Int,
+    markerWidthMs: Int,
     minorTick: @Composable (timeMs: Long) -> Unit,
     majorTick: @Composable (timeMs: Long) -> Unit,
     label: @Composable (index: Int) -> Unit,
+    marker: @Composable (labelIdx: Int, idx: Int) -> Unit,
 ): () -> LazyEventPlotItemProvider {
     val firstMinorTickMs = minMs / minorTickMs * minorTickMs
     val minorTickCount = (maxMs - firstMinorTickMs).toInt() / minorTickMs + 1
@@ -37,9 +40,11 @@ internal fun lazyEventPlotItemProviderLambda(
             majorTickCount = majorTickCount,
             minorTickMs = minorTickMs,
             majorTickMs = majorTickMs,
+            markerWidthMs = markerWidthMs,
             minorTick = minorTick,
             majorTick = majorTick,
             label = label,
+            marker = marker,
         )
     }
 }
@@ -53,18 +58,24 @@ private class LazyEventPlotItemProviderImpl(
     private val majorTickCount: Int = 0,
     private val minorTickMs: Int = 0,
     private val majorTickMs: Int = 0,
+    private val markerWidthMs: Int = 0,
     private val minorTick: @Composable (timeMs: Long) -> Unit = {},
     private val majorTick: @Composable (timeMs: Long) -> Unit = {},
     private val label: @Composable (index: Int) -> Unit = {},
+    private val marker: @Composable (labelIdx: Int, idx: Int) -> Unit,
 ) : LazyEventPlotItemProvider {
 
     private val majorTickIdxOffset = 0
     private val minorTickIdxOffset = majorTickCount
     private val labelIdxOffset = majorTickCount + minorTickCount
     private val labelCount = data.size
+    private val markerIdxOffset = labelIdxOffset + labelCount
+    private val markerIntervals = data.map { it.size }
+    private val markerPrefixSums = markerIntervals.scan(0) { acc, i -> acc + i }
+    private val markerCount = markerPrefixSums.last()
 
     override val itemCount: Int
-        get() = minorTickCount + majorTickCount + labelCount
+        get() = minorTickCount + majorTickCount + labelCount + markerCount
 
     @Composable
     override fun Item(index: Int, key: Any) = when {
@@ -80,9 +91,17 @@ private class LazyEventPlotItemProviderImpl(
             minorTick(timeMs)
         }
 
-        index < itemCount -> {
+        index < markerIdxOffset -> {
             val relativeIdx = index - labelIdxOffset
             label(relativeIdx)
+        }
+
+        index < itemCount -> {
+            val markerIdx = index - markerIdxOffset
+            val labelSearchIdx = markerPrefixSums.binarySearch(markerIdx)
+            val labelIdx = if (labelSearchIdx >= 0) labelSearchIdx else -labelSearchIdx - 2
+            val relativeIdx = markerIdx - (markerPrefixSums.getOrNull(labelIdx) ?: 0)
+            marker(labelIdx, relativeIdx)
         }
 
         else -> Unit
@@ -92,7 +111,8 @@ private class LazyEventPlotItemProviderImpl(
     override fun getContentType(index: Int): Any? = when {
         index < minorTickIdxOffset -> "MajorTick"
         index < labelIdxOffset -> "MinorTick"
-        index < itemCount -> "Label"
+        index < markerIdxOffset -> "Label"
+        index < itemCount -> "Marker"
         else -> null
     }
 
@@ -107,7 +127,15 @@ private class LazyEventPlotItemProviderImpl(
             "MinorTick-$tickMs"
         }
 
-        index < itemCount -> "Label-$index"
+        index < markerIdxOffset -> {
+            val relativeIdx = index - labelIdxOffset
+            "Label-$relativeIdx"
+        }
+
+        index < itemCount -> {
+            val relativeIdx = index - labelIdxOffset
+            "Marker-$relativeIdx"
+        }
 
         else -> getDefaultLazyLayoutKey(index)
     }
@@ -128,20 +156,43 @@ private class LazyEventPlotItemProviderImpl(
             labelIdxOffset + key.removePrefix("L-").toInt()
         }
 
+        key.startsWith("Marker-") -> {
+            val relativeIdx = key.removePrefix("Marker-").toInt()
+            markerIdxOffset + relativeIdx
+        }
+
         else -> -1
     }
 
     override fun getMajorTickIndicesInRange(minMs: Long, maxMs: Long): Iterable<Int> {
         val firstIndex = ((minMs - firstMajorTickMs) / majorTickMs).toInt()
         val lastIndex = ((maxMs - firstMajorTickMs) / majorTickMs).toInt()
-        return firstIndex..lastIndex
+        return firstIndex.coerceAtLeast(majorTickIdxOffset)..lastIndex.coerceAtMost(
+            minorTickIdxOffset - 1
+        )
     }
 
     override fun getMinorTickIndicesInRange(minMs: Long, maxMs: Long): Iterable<Int> {
-        val firstIndex = majorTickCount + ((minMs - firstMinorTickMs) / minorTickMs).toInt()
-        val lastIndex = majorTickCount + ((maxMs - firstMinorTickMs) / minorTickMs).toInt()
-        return firstIndex..lastIndex
+        val firstIndex = minorTickIdxOffset + ((minMs - firstMinorTickMs) / minorTickMs).toInt()
+        val lastIndex = minorTickIdxOffset + ((maxMs - firstMinorTickMs) / minorTickMs).toInt()
+        return firstIndex.coerceAtLeast(minorTickIdxOffset)..lastIndex.coerceAtMost(labelIdxOffset - 1)
     }
 
-    override fun getLabelIndices(): Iterable<Int> = labelIdxOffset until itemCount
+    override fun getLabelIndices() = Pair(labelIdxOffset, 0 until labelCount)
+
+    override fun getMarkerIndicesInRange(
+        labelIdx: Int,
+        minMs: Long,
+        maxMs: Long
+    ): Pair<Int, IntRange> {
+        val events = data[labelIdx]
+        val minIdx = events.binarySearchBy(minMs - markerWidthMs) { it.timeMs }
+        val firstIndex = if (minIdx < 0) -minIdx - 1 else minIdx
+        val maxIdx = events.binarySearchBy(maxMs, fromIndex = firstIndex) { it.timeMs }
+        val lastIndex = if (maxIdx < 0) -maxIdx - 1 else maxIdx
+        return Pair(
+            markerIdxOffset + markerPrefixSums[labelIdx],
+            firstIndex.coerceAtLeast(0) until lastIndex.coerceAtMost(events.size - 1)
+        )
+    }
 }
