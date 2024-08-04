@@ -4,8 +4,8 @@ sealed interface MaeDestinations {
     val route: String
 }
 
-data object Home : MaeDestinations {
-    override val route = "home"
+data object Recorder : MaeDestinations {
+    override val route = "recorder"
 }
 
 data object Watch : MaeDestinations {

@@ -1,11 +1,9 @@
-package dev.syta.myaudioevents.ui.screens.home
+package dev.syta.myaudioevents.ui.screens.recorder
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -16,27 +14,22 @@ import dev.syta.myaudioevents.ui.theme.MaeTheme
 
 
 @Composable
-fun HomeScreen(onClickWatch: () -> Unit) {
+fun RecorderScreen() {
     Column(
         modifier = Modifier
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
-            .testTag("HomeScreen:overview")
+            .testTag("RecorderScreen:overview")
     ) {
-        Button(
-            onClick = onClickWatch
-        ) {
-            Text("Watch")
-        }
     }
 }
 
 @DevicePreviews
 @Composable
-fun HomeScreenPreview() {
+fun RecorderScreenPreview() {
     MaeTheme {
         MaeBackground {
-            HomeScreen(onClickWatch = {})
+            RecorderScreen()
         }
     }
 }
