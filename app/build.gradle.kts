@@ -1,6 +1,9 @@
+import de.undercouch.gradle.tasks.download.Download
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.download)
 }
 
 android {
@@ -71,4 +74,17 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+extra["ASSET_DIR"] = "${projectDir}/src/main/assets"
+
+tasks.register<Download>("downloadYamnetModel") {
+    src("https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite")
+    dest(File("${project.extra["ASSET_DIR"]}/yamnet.tflite"))
+    overwrite(false)
+    onlyIfModified(true)
+}
+
+tasks.named("preBuild") {
+    dependsOn("downloadYamnetModel")
 }
