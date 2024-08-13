@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
@@ -32,13 +33,16 @@ import com.google.accompanist.permissions.shouldShowRationale
 import dev.syta.myaudioevents.R
 import dev.syta.myaudioevents.designsystem.MaeBackground
 import dev.syta.myaudioevents.ui.DevicePreviews
+import dev.syta.myaudioevents.ui.components.lazy.eventplot.LazyEventPlot
+import dev.syta.myaudioevents.ui.components.lazy.eventplot.Marker
+import dev.syta.myaudioevents.ui.components.lazy.eventplot.formattedTime
 import dev.syta.myaudioevents.ui.theme.MaeTheme
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun RecorderScreen(
     modifier: Modifier = Modifier,
-    viewModel: RecorderViewModel = RecorderViewModel(),
+    viewModel: RecorderViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     lateinit var recordAudioPermissionState: PermissionState
@@ -93,6 +97,39 @@ fun RecorderScreen(
                     ),
                 ),
         ) {
+            LazyEventPlot(
+                minMs = viewModel.startTimeMs,
+                maxMs = viewModel.endTimeMs,
+                eventCount = viewModel.events.size,
+                dataProvider = viewModel.events::get,
+                labelCount = viewModel.categories.size,
+                minorTickMs = 1_000,
+                majorTickMs = 60_000,
+                markerWidthMs = 195,
+                minorTick = { timeMs ->
+                    dev.syta.myaudioevents.ui.components.lazy.eventplot.MinorTick(
+                        formattedTime(
+                            timeMs,
+                            ":ss"
+                        )
+                    )
+                },
+                majorTick = { timeMs ->
+                    dev.syta.myaudioevents.ui.components.lazy.eventplot.MajorTick(
+                        formattedTime(
+                            timeMs,
+                            "HH:mm"
+                        )
+                    )
+                },
+                label = { index ->
+                    dev.syta.myaudioevents.ui.components.lazy.eventplot.Label(viewModel.categories[index].name)
+                },
+                marker = { idx ->
+                    Marker(alpha = viewModel.events[idx].score)
+                }
+            )
+
             if (viewModel.showPermissionRationale) {
                 AlertDialog(
                     onDismissRequest = { viewModel.hidePermissionRationale() },
