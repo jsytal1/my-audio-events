@@ -20,16 +20,20 @@ import android.content.Context
 import android.media.AudioRecord
 import android.os.SystemClock
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.tensorflow.lite.support.audio.TensorAudio
 import org.tensorflow.lite.support.label.Category
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier
 import org.tensorflow.lite.task.core.BaseOptions
 import java.util.concurrent.ScheduledThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 
 interface AudioClassificationListener {
     fun onError(error: String)
-    fun onResult(results: List<Category>, inferenceTime: Long)
+    fun onResult(results: List<Category>, inferenceTime: Long, timestampMs: Long)
 }
 
 class AudioClassificationHelper(
@@ -45,20 +49,18 @@ class AudioClassificationHelper(
     private lateinit var classifier: AudioClassifier
     private lateinit var tensorAudio: TensorAudio
     private lateinit var recorder: AudioRecord
+    private var readStartTimeMs: Long = Long.MIN_VALUE
+    private var totalReadSize: Long = 0
     private lateinit var executor: ScheduledThreadPoolExecutor
+    private var classificationJob: Job? = null
 
     private val classifyRunnable = Runnable {
         classifyAudio()
     }
 
-    init {
-        initClassifier()
-    }
-
     fun initClassifier() {
         // Set general detection options, e.g. number of used threads
-        val baseOptionsBuilder = BaseOptions.builder()
-            .setNumThreads(numThreads)
+        val baseOptionsBuilder = BaseOptions.builder().setNumThreads(numThreads)
 
         // Use the specified hardware for running the model. Default to CPU.
         // Possible to also use a GPU delegate, but this requires that the classifier be created
@@ -76,10 +78,8 @@ class AudioClassificationHelper(
 
         // Configures a set of parameters for the classifier and what results will be returned.
         val options = AudioClassifier.AudioClassifierOptions.builder()
-            .setScoreThreshold(classificationThreshold)
-            .setMaxResults(numOfResults)
-            .setBaseOptions(baseOptionsBuilder.build())
-            .build()
+            .setScoreThreshold(classificationThreshold).setMaxResults(numOfResults)
+            .setBaseOptions(baseOptionsBuilder.build()).build()
 
         try {
             // Create the classifier and required supporting objects
@@ -100,38 +100,58 @@ class AudioClassificationHelper(
         if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
             return
         }
+        Log.d("AudioClassification", "Starting audio classification")
 
         recorder.startRecording()
+        readStartTimeMs = System.currentTimeMillis()
+        totalReadSize = 0
         executor = ScheduledThreadPoolExecutor(1)
 
         // Each model will expect a specific audio recording length. This formula calculates that
         // length using the input buffer size and tensor format sample rate.
         // For example, YAMNET expects 0.975 second length recordings.
         // This needs to be in milliseconds to avoid the required Long value dropping decimals.
-        val lengthInMilliSeconds = ((classifier.requiredInputBufferSize * 1.0f) /
-                classifier.requiredTensorAudioFormat.sampleRate) * 1000
+        val lengthInMilliSeconds =
+            ((classifier.requiredInputBufferSize * 1.0f) / classifier.requiredTensorAudioFormat.sampleRate) * 1000
 
-        val interval = (lengthInMilliSeconds * (1 - overlap)).toLong()
+        val bufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
 
-        executor.scheduleAtFixedRate(
-            classifyRunnable,
-            0,
-            interval,
-            TimeUnit.MILLISECONDS
-        )
+        classificationJob = CoroutineScope(Dispatchers.Default).launch {
+            // Adjust based on the bit depth and channels.
+            Log.d("AudioClassification", "Buffer size: $bufferSize")
+            val audioBuffer = FloatArray(bufferSize)
+
+            while (isActive) {
+                Log.d("AudioClassification", "Reading audio")
+                val result = recorder.read(audioBuffer, 0, bufferSize, AudioRecord.READ_BLOCKING)
+                if (result < 0) {
+                    // Handle error
+                    Log.e("AudioRecord", "Error reading audio")
+                    return@launch
+                }
+                Log.d("AudioClassification", "Read $result bytes")
+                // Handle the result
+                if (result > 0) {
+                    tensorAudio.load(audioBuffer, 0, result)
+                    classifyAudio()
+                    totalReadSize += result
+                }
+            }
+        }
     }
 
     private fun classifyAudio() {
-        tensorAudio.load(recorder)
+        val bufferStartTimeMs =
+            readStartTimeMs + (totalReadSize * 1000 / tensorAudio.format.sampleRate)
         var inferenceTime = SystemClock.uptimeMillis()
         val output = classifier.classify(tensorAudio)
         inferenceTime = SystemClock.uptimeMillis() - inferenceTime
-        listener.onResult(output[0].categories, inferenceTime)
+        listener.onResult(output[0].categories, inferenceTime, bufferStartTimeMs)
     }
 
     fun stopAudioClassification() {
         recorder.stop()
-        executor.shutdownNow()
+        classificationJob?.cancel()
     }
 
     companion object {
@@ -141,6 +161,5 @@ class AudioClassificationHelper(
         const val DEFAULT_NUM_OF_RESULTS = 2
         const val DEFAULT_OVERLAP_VALUE = 0.5f
         const val YAMNET_MODEL = "yamnet.tflite"
-        const val SPEECH_COMMAND_MODEL = "speech.tflite"
     }
 }
