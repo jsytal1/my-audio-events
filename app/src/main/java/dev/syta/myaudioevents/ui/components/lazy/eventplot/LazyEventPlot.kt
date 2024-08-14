@@ -37,10 +37,9 @@ import kotlin.math.max
 @Composable
 fun LazyEventPlot(
     minMs: Long,
-    maxMs: Long,
-    eventCount: Int,
+    eventCount: () -> Int,
     dataProvider: (index: Int) -> PlotEventInfo,
-    labelCount: Int,
+    labelCount: () -> Int,
     minorTick: @Composable (timeMs: Long) -> Unit,
     majorTick: @Composable (timeMs: Long) -> Unit,
     label: @Composable (index: Int) -> Unit,
@@ -466,8 +465,8 @@ fun LazyEventPlotPreview() {
                     minorTickWidth = 128.dp,
                     majorTickMs = 60_000,
                     dataProvider = { index: Int -> eventData[index] },
-                    eventCount = eventData.size,
-                    labelCount = eventTypes.size,
+                    eventCount = { eventData.size },
+                    labelCount = { eventTypes.size },
                     minorTick = { timeMs ->
                         MinorTick(formattedTime(timeMs, ":ss"))
                     },

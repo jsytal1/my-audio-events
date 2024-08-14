@@ -15,8 +15,8 @@ internal interface LazyEventPlotItemProvider : LazyLayoutItemProvider {
 
 @Composable
 internal fun lazyEventPlotItemProviderLambda(
-    eventCount: Int,
-    labelCount: Int,
+    eventCount: () -> Int,
+    labelCount: () -> Int,
     dataProvider: (eventIdx: Int) -> PlotEventInfo,
     minMs: Long,
     maxMs: Long,
@@ -55,8 +55,9 @@ internal fun lazyEventPlotItemProviderLambda(
 
 @OptIn(ExperimentalFoundationApi::class)
 private class LazyEventPlotItemProviderImpl(
-    eventCount: Int,
-    private val labelCount: Int,
+    private val eventCount: () -> Int,
+    private val labelCount: () -> Int,
+    private val maxLabelCount: Int = 1_000,
     private val dataProvider: (eventIdx: Int) -> PlotEventInfo,
     private val firstMinorTickMs: Long = 0,
     private val firstMajorTickMs: Long = 0,
@@ -74,11 +75,10 @@ private class LazyEventPlotItemProviderImpl(
     private val majorTickIdxOffset = 0
     private val minorTickIdxOffset = majorTickCount
     private val labelIdxOffset = majorTickCount + minorTickCount
-    private val markerIdxOffset = labelIdxOffset + labelCount
-    private val markerCount = eventCount
+    private val markerIdxOffset = labelIdxOffset + maxLabelCount
 
     override val itemCount: Int
-        get() = minorTickCount + majorTickCount + labelCount + markerCount
+        get() = minorTickCount + majorTickCount + maxLabelCount + eventCount()
 
     @Composable
     override fun Item(index: Int, key: Any) = when {
@@ -96,7 +96,7 @@ private class LazyEventPlotItemProviderImpl(
 
         index < markerIdxOffset -> {
             val relativeIdx = index - labelIdxOffset
-            label(relativeIdx)
+            if (relativeIdx < labelCount()) label(relativeIdx) else Unit
         }
 
         index < itemCount -> {
@@ -178,7 +178,7 @@ private class LazyEventPlotItemProviderImpl(
         return firstIndex.coerceAtLeast(minorTickIdxOffset)..lastIndex.coerceAtMost(labelIdxOffset - 1)
     }
 
-    override fun getLabelIndices() = Pair(labelIdxOffset, 0 until labelCount)
+    override fun getLabelIndices() = Pair(labelIdxOffset, 0 until labelCount())
 
     override fun getMarkerIndicesInRange(
         minMs: Long, maxMs: Long
@@ -186,19 +186,19 @@ private class LazyEventPlotItemProviderImpl(
 
         val minIdx = binarySearchOnVirtualList(
             0,
-            markerCount - 1,
+            eventCount() - 1,
             minMs - markerWidthMs,
         ) { dataProvider(it).timeMs }
         val firstIndex = if (minIdx < 0) -minIdx - 1 else minIdx
         val maxIdx = binarySearchOnVirtualList(
             firstIndex,
-            markerCount - 1,
+            eventCount() - 1,
             maxMs,
         ) { dataProvider(it).timeMs }
         val lastIndex = if (maxIdx < 0) -maxIdx - 1 else maxIdx
         return Pair(
             markerIdxOffset,
-            firstIndex.coerceAtLeast(0) until lastIndex.coerceAtMost(markerCount - 1)
+            firstIndex.coerceAtLeast(0) until lastIndex.coerceAtMost(eventCount() - 1)
         )
     }
 }
