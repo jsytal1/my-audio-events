@@ -13,6 +13,11 @@ import androidx.compose.foundation.lazy.layout.LazyLayout
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -41,13 +46,26 @@ fun LazyEventPlot(
     label: @Composable (index: Int) -> Unit,
     marker: @Composable (idx: Int) -> Unit,
     modifier: Modifier = Modifier,
+    maxMsLambda: () -> Long = { System.currentTimeMillis() + 2_000 },
     minorTickMs: Int = 5_000,
     majorTickMs: Int = 60_000,
     minorTickWidth: Dp = 128.dp,
     markerWidthMs: Int = 975,
     markerHeight: Dp = 32.dp,
-    state: LazyEventPlotState = rememberLazyEventPlotState(),
+    state: LazyEventPlotState = rememberLazyEventPlotState(minMs = minMs),
+    liveScroll: Boolean = false,
 ) {
+    var maxMs by remember { mutableLongStateOf(minMs + 60_000) }
+
+    LaunchedEffect(liveScroll) {
+        while (liveScroll) {
+            val newMaxMs = maxMsLambda()
+            if (newMaxMs + 30_000 > maxMs) {
+                maxMs += 30_000
+            }
+            state.animateScrollToMsRight(maxMsLambda(), 1_000)
+        }
+    }
 
     val itemProviderLambda = lazyEventPlotItemProviderLambda(
         eventCount = eventCount,
@@ -130,6 +148,8 @@ fun LazyEventPlot(
         state.updateMaxScrollOffset(
             maxOf(0, totalWidth - viewportWidth)
         )
+        state.msPerPx = msPerPx
+        state.width = layoutWidth
 
         layout(layoutWidth, totalHeight) {
             var yPosition = 0
@@ -440,7 +460,7 @@ fun LazyEventPlotPreview() {
         MaeBackground {
             Column {
                 LazyEventPlot(minMs = 0,
-                    maxMs = 4_960,
+                    maxMsLambda = { 4_960 },
                     minorTickMs = 1_000,
                     markerWidthMs = 100,
                     minorTickWidth = 128.dp,
