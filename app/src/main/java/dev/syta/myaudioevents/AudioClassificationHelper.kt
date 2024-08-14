@@ -127,21 +127,21 @@ class AudioClassificationHelper(
                 }
 
                 if (result == bufferSize) {
+                    totalReadSize += result
                     tensorAudio.load(audioBuffer, 0, result)
                     classifyAudio()
-                    totalReadSize += result
                 }
             }
         }
     }
 
     private fun classifyAudio() {
-        val bufferStartTimeMs =
+        val bufferEndTimeMs =
             readStartTimeMs + (totalReadSize * 1000 / tensorAudio.format.sampleRate)
         var inferenceTime = SystemClock.uptimeMillis()
         val output = classifier.classify(tensorAudio)
         inferenceTime = SystemClock.uptimeMillis() - inferenceTime
-        listener.onResult(output[0].categories, inferenceTime, bufferStartTimeMs)
+        listener.onResult(output[0].categories, inferenceTime, bufferEndTimeMs)
     }
 
     fun stopAudioClassification() {
