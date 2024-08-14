@@ -126,7 +126,7 @@ class AudioClassificationHelper(
                     return@launch
                 }
 
-                if (result > 0) {
+                if (result == bufferSize) {
                     tensorAudio.load(audioBuffer, 0, result)
                     classifyAudio()
                     totalReadSize += result
