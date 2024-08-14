@@ -25,10 +25,7 @@ class RecorderViewModel @Inject constructor(
 ) : ViewModel() {
     var isRecording by mutableStateOf(false)
         private set
-    private val timestampMs = System.currentTimeMillis() / 1000 * 1000
-    var startTimeMs by mutableLongStateOf(timestampMs)
-        private set
-    var endTimeMs by mutableLongStateOf(timestampMs + 60_000)
+    var startTimeMs by mutableLongStateOf(System.currentTimeMillis() / 1000 * 1000)
         private set
 
     private val _events = mutableStateListOf<PlotEventInfo>()
@@ -52,7 +49,6 @@ class RecorderViewModel @Inject constructor(
                 override fun onResult(
                     results: List<Category>, inferenceTime: Long, timestampMs: Long
                 ) {
-                    endTimeMs = timestampMs + 60_000
                     results.forEach {
                         val label = it.label
                         if (!_categoryToIndex.containsKey(label)) {
@@ -83,6 +79,7 @@ class RecorderViewModel @Inject constructor(
 
     fun startRecording() {
         viewModelScope.launch {
+            startTimeMs = minOf(startTimeMs, System.currentTimeMillis())
             audioClassifierHelper.initClassifier()
             isRecording = true
         }

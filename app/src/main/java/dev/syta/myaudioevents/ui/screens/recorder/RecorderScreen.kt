@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
@@ -102,13 +103,15 @@ fun RecorderScreen(
         ) {
             LazyEventPlot(
                 minMs = viewModel.startTimeMs,
-                maxMs = viewModel.endTimeMs,
-                eventCount = viewModel.events.size,
+                maxMsLambda = { System.currentTimeMillis() + 2_000 },
+                eventCount = { viewModel.events.size },
                 dataProvider = viewModel.events::get,
-                labelCount = viewModel.categories.size,
+                labelCount = { viewModel.categories.size },
                 minorTickMs = 1_000,
                 majorTickMs = 60_000,
                 markerWidthMs = 195,
+                minorTickWidth = 64.dp,
+                liveScroll = viewModel.isRecording,
                 minorTick = { timeMs ->
                     dev.syta.myaudioevents.ui.components.lazy.eventplot.MinorTick(
                         formattedTime(
