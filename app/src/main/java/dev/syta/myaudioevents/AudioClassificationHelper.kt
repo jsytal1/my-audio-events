@@ -100,7 +100,6 @@ class AudioClassificationHelper(
         if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
             return
         }
-        Log.d("AudioClassification", "Starting audio classification")
 
         recorder.startRecording()
         readStartTimeMs = System.currentTimeMillis()
@@ -118,19 +117,15 @@ class AudioClassificationHelper(
 
         classificationJob = CoroutineScope(Dispatchers.Default).launch {
             // Adjust based on the bit depth and channels.
-            Log.d("AudioClassification", "Buffer size: $bufferSize")
             val audioBuffer = FloatArray(bufferSize)
 
             while (isActive) {
-                Log.d("AudioClassification", "Reading audio")
                 val result = recorder.read(audioBuffer, 0, bufferSize, AudioRecord.READ_BLOCKING)
                 if (result < 0) {
-                    // Handle error
                     Log.e("AudioRecord", "Error reading audio")
                     return@launch
                 }
-                Log.d("AudioClassification", "Read $result bytes")
-                // Handle the result
+
                 if (result > 0) {
                     tensorAudio.load(audioBuffer, 0, result)
                     classifyAudio()
