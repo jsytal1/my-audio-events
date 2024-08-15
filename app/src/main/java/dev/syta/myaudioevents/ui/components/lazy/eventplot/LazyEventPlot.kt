@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.syta.myaudioevents.data.local.entities.EventType
-import dev.syta.myaudioevents.designsystem.MaeBackground
+import dev.syta.myaudioevents.designsystem.component.MaeBackground
 import dev.syta.myaudioevents.ui.theme.MaeTheme
 import java.text.SimpleDateFormat
 import java.util.Locale

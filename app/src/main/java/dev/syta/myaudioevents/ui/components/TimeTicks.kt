@@ -22,7 +22,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.syta.myaudioevents.designsystem.MaeBackground
+import dev.syta.myaudioevents.designsystem.component.MaeBackground
 import dev.syta.myaudioevents.ui.theme.MaeTheme
 import java.text.SimpleDateFormat
 import java.util.Locale

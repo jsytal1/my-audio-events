@@ -34,7 +34,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import dev.syta.myaudioevents.R
-import dev.syta.myaudioevents.designsystem.MaeBackground
+import dev.syta.myaudioevents.designsystem.component.MaeBackground
 import dev.syta.myaudioevents.ui.DevicePreviews
 import dev.syta.myaudioevents.ui.components.lazy.eventplot.LazyEventPlot
 import dev.syta.myaudioevents.ui.components.lazy.eventplot.Marker
