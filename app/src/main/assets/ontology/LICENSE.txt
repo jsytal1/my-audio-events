@@ -11,7 +11,6 @@ Changes:
 - The data was augmented with some derived `_meta` fields:
     - `_meta.abstract` - not in yamnet list but has descendants that are
     - `_meta.child_ids` - subset of child_ids that are in yamnet list (or have descendants that are)
-    - `_meta.tags` - list of ids of classes that have this class as an ancestor
 
 ontology.json is made available under a Creative Commons
 Attribution-ShareAlike 4.0 International (CC BY-SA 4.0) license.
