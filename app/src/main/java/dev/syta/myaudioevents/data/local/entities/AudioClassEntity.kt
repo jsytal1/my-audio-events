@@ -15,4 +15,5 @@ data class AudioClassEntity(
 fun AudioClassEntity.asExternalModel() = AudioClass(
     id = id,
     name = name,
+    ancestors = emptyList(),
 )
