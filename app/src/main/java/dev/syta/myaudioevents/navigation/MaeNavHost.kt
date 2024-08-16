@@ -5,7 +5,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import dev.syta.myaudioevents.ui.MaeAppState
 import dev.syta.myaudioevents.ui.screens.recorder.RecorderScreen
-import dev.syta.myaudioevents.ui.screens.watch.WatchScreen
 
 @Composable
 fun MaeNavHost(
@@ -16,9 +15,6 @@ fun MaeNavHost(
     NavHost(navController = navController, startDestination = startDestination) {
         composable(Recorder.route) {
             RecorderScreen()
-        }
-        composable(Watch.route) {
-            WatchScreen()
         }
     }
 }

@@ -7,7 +7,3 @@ sealed interface MaeDestinations {
 data object Recorder : MaeDestinations {
     override val route = "recorder"
 }
-
-data object Watch : MaeDestinations {
-    override val route = "watch"
-}
