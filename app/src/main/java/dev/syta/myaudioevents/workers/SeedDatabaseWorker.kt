@@ -11,7 +11,9 @@ import com.google.gson.stream.JsonReader
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dev.syta.myaudioevents.data.local.MaeDatabase
+import dev.syta.myaudioevents.data.local.entities.AudioClassAncestorCrossRef
 import dev.syta.myaudioevents.data.local.entities.AudioClassEntity
+import dev.syta.myaudioevents.utilities.ONTOLOGY_ANCESTOR_DATA_FILE
 import dev.syta.myaudioevents.utilities.ONTOLOGY_DATA_FILE
 import kotlinx.coroutines.coroutineScope
 
@@ -30,9 +32,20 @@ class SeedDatabaseWorker @AssistedInject constructor(
                         Gson().fromJson(jsonReader, entityListType)
 
                     database.audioClassDao().upsertAudioClassEntities(entityList)
-                    Result.success()
                 }
             }
+            applicationContext.assets.open(ONTOLOGY_ANCESTOR_DATA_FILE).use { inputStream ->
+                JsonReader(inputStream.reader()).use { jsonReader ->
+                    val entityListType =
+                        object : TypeToken<List<AudioClassAncestorCrossRef>>() {}.type
+                    val entityList: List<AudioClassAncestorCrossRef> =
+                        Gson().fromJson(jsonReader, entityListType)
+
+                    database.audioClassDao().upsertAudioClassAncestorCrossRefs(entityList)
+                }
+            }
+            Result.success()
+
         } catch (ex: Exception) {
             Log.e(TAG, "Error seeding database", ex)
             Result.failure()
