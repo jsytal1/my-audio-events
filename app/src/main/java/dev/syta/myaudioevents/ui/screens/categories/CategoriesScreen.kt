@@ -18,8 +18,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MultiChoiceSegmentedButtonRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,7 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import dev.syta.myaudioevents.data.model.AudioClass
+import dev.syta.myaudioevents.data.model.UserAudioClass
 import dev.syta.myaudioevents.ui.components.MaeTag
 
 
@@ -53,21 +56,29 @@ fun CategoriesScreen(
                     ),
                 ),
         ) {
-            CategoriesScreenContent(uiState)
+            CategoriesScreenContent(
+                uiState = uiState,
+                followAudioClass = viewModel::followAudioClass,
+            )
         }
     }
 }
 
 @Composable
-fun CategoriesScreenContent(uiState: CategoriesScreenUiState) {
+fun CategoriesScreenContent(
+    uiState: CategoriesScreenUiState,
+    followAudioClass: (String, Boolean) -> Unit,
+) {
     when (val s = uiState) {
         CategoriesScreenUiState.Loading -> {
             Text("Loading")
         }
 
         is CategoriesScreenUiState.Ready -> {
+
             CategoriesList(
                 audioClassList = s.audioClassList,
+                followAudioClass = followAudioClass,
             )
         }
     }
@@ -75,19 +86,30 @@ fun CategoriesScreenContent(uiState: CategoriesScreenUiState) {
 
 
 @Composable
-fun CategoriesList(audioClassList: List<AudioClass>) {
+fun CategoriesList(
+    audioClassList: List<UserAudioClass>,
+    followAudioClass: (String, Boolean) -> Unit
+) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(audioClassList) {
-            CategoryCard(it)
+            CategoryCard(
+                it,
+                onFollowClick = { isFollowed ->
+                    followAudioClass(it.id, isFollowed)
+                }
+            )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun CategoryCard(audioClass: AudioClass) {
+fun CategoryCard(
+    audioClass: UserAudioClass,
+    onFollowClick: (Boolean) -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -98,6 +120,18 @@ fun CategoryCard(audioClass: AudioClass) {
             Text(
                 text = audioClass.name, style = MaterialTheme.typography.titleMedium
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            MultiChoiceSegmentedButtonRow {
+                SegmentedButton(
+                    checked = audioClass.isFollowed,
+                    onCheckedChange = { onFollowClick(it) },
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = if (audioClass.isFollowed) "Unfollow" else "Follow"
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -111,14 +145,19 @@ fun CategoryCard(audioClass: AudioClass) {
     }
 }
 
+
 @Preview
 @Composable
 fun CategoryCardPreview() {
     CategoryCard(
-        AudioClass(
-            id = "1", name = "Category", ancestors = listOf(
+        UserAudioClass(
+            id = "1",
+            name = "Category",
+            ancestors = listOf(
                 "Ancestor 1", "Ancestor 2", "Ancestor 3", "Ancestor 4", "Ancestor 5", "Ancestor 6"
-            )
-        )
+            ),
+            isFollowed = false
+        ),
+        onFollowClick = {}
     )
 }
