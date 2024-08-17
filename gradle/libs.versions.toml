@@ -22,6 +22,10 @@ hiltNavigationCompose = "1.2.0"
 
 hiltWork = "1.2.0"
 hiltCompiler = "1.2.0"
+datastore = "1.1.1"
+
+protobuf = "4.26.1"
+protobufPlugin = "0.9.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -59,9 +63,16 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltCompiler" }
 
+androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "datastore" }
+
+protobuf-kotlin-lite = { group = "com.google.protobuf", name = "protobuf-kotlin-lite", version.ref = "protobuf" }
+protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 download = { id = "de.undercouch.download", version.ref = "gradle-download-plugin" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+
+protobuf = { id = "com.google.protobuf", version.ref = "protobufPlugin" }

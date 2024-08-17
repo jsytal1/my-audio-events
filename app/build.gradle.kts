@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.download)
     id("kotlin-kapt")
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -54,6 +55,24 @@ android {
     }
 }
 
+protobuf {
+    protoc {
+        artifact = libs.protobuf.protoc.get().toString()
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                register("java") {
+                    option("lite")
+                }
+                register("kotlin") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -73,6 +92,8 @@ dependencies {
     implementation(libs.gson)
 
     implementation(libs.hilt.android)
+    implementation(libs.androidx.datastore)
+
     kapt(libs.hilt.compiler)
     kapt(libs.hilt.android.compiler)
 
@@ -94,6 +115,9 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    api(libs.protobuf.kotlin.lite)
+
 }
 
 kapt {

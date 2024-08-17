@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option java_package = "dev.syta.myaudioevents";
+option java_multiple_files = true;
+
+message UserPreferences {
+    map<string, bool> followed_audio_class_ids = 1;
+
+    // NEXT AVAILABLE ID: 2
+}

@@ -7,13 +7,13 @@ import dev.syta.myaudioevents.data.model.AudioClass
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-interface AudioClassStore {
+interface AudioClassRepository {
     fun getAudioClasses(): Flow<List<AudioClass>>
 }
 
-class LocalAudioClassStore constructor(
+class OfflineFirstAudioClassRepository constructor(
     private val audioClassDao: AudioClassDao
-) : AudioClassStore {
+) : AudioClassRepository {
     override fun getAudioClasses(): Flow<List<AudioClass>> =
         audioClassDao.getPopulatedAudioClasses()
             .map { it.map(PopulatedAudioClass::asExternalModel) }
