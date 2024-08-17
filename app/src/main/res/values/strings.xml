@@ -2,4 +2,6 @@
     <string name="app_name">My Audio Events</string>
     <string name="stop_recording">Stop Recording</string>
     <string name="start_recording">Start Recording</string>
+    <string name="recorder_title">Recorder</string>
+    <string name="categories_title">Categories</string>
 </resources>

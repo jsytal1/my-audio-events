@@ -94,6 +94,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.runtime.livedata)
 
     kapt(libs.hilt.compiler)
     kapt(libs.hilt.android.compiler)
