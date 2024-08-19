@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.map
 
 interface AudioClassRepository {
     fun getAudioClasses(): Flow<List<AudioClass>>
+
+    fun getAudioClasses(ids: Set<String>): Flow<List<AudioClass>>
 }
 
 class OfflineFirstAudioClassRepository constructor(
@@ -17,4 +19,9 @@ class OfflineFirstAudioClassRepository constructor(
     override fun getAudioClasses(): Flow<List<AudioClass>> =
         audioClassDao.getPopulatedAudioClasses()
             .map { it.map(PopulatedAudioClass::asExternalModel) }
+
+    override fun getAudioClasses(ids: Set<String>): Flow<List<AudioClass>> =
+        audioClassDao.getPopulatedAudioClasses(ids.toList())
+            .map { it.map(PopulatedAudioClass::asExternalModel) }
+
 }

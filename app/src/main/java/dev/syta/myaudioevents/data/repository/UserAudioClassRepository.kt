@@ -2,12 +2,17 @@ package dev.syta.myaudioevents.data.repository
 
 import dev.syta.myaudioevents.data.model.UserAudioClass
 import dev.syta.myaudioevents.data.model.mapToUserAudioClasses
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 interface UserAudioClassRepository {
     fun observeAll(): Flow<List<UserAudioClass>>
+
+    fun followedAudioClassNames(): Flow<Set<String>>
 }
 
 /**
@@ -26,4 +31,14 @@ class CompositeUserAudioClassRepository @Inject constructor(
         .combine(userDataRepository.userData) { audioClasses, userData ->
             audioClasses.mapToUserAudioClasses(userData)
         }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun followedAudioClassNames(): Flow<Set<String>> =
+        userDataRepository.userData.flatMapConcat { userData ->
+            audioClassRepository.getAudioClasses(ids = userData.followedAudioClasses)
+                .map { audioClasses ->
+                    audioClasses.map { it.name }.toSet()
+                }
+        }
+
 }

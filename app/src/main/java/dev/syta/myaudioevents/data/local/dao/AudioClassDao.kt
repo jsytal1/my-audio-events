@@ -18,6 +18,9 @@ interface AudioClassDao {
     @Query("SELECT * FROM audio_classes")
     fun getPopulatedAudioClasses(): Flow<List<PopulatedAudioClass>>
 
+    @Query("SELECT * FROM audio_classes WHERE id IN (:ids)")
+    fun getPopulatedAudioClasses(ids: List<String>): Flow<List<PopulatedAudioClass>>
+
     @Upsert
     fun upsertAudioClassEntities(audioClasses: List<AudioClassEntity>)
 
