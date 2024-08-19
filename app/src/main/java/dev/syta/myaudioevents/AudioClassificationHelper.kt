@@ -41,12 +41,12 @@ interface AudioClassificationListener {
 class AudioClassificationHelper(
     val context: Context,
     val listener: AudioClassificationListener,
-    var currentModel: String = YAMNET_MODEL,
-    var classificationThreshold: Float = DISPLAY_THRESHOLD,
+    private var currentModel: String = YAMNET_MODEL,
+    private var classificationThreshold: Float = DISPLAY_THRESHOLD,
     var overlap: Float = DEFAULT_OVERLAP_VALUE,
     var numOfResults: Int = DEFAULT_NUM_OF_RESULTS,
-    var currentDelegate: Int = 0,
-    var numThreads: Int = 2
+    private var currentDelegate: Int = 0,
+    private var numThreads: Int = 2
 ) {
     private lateinit var classifier: AudioClassifier
     private lateinit var tensorAudio: TensorAudio
@@ -55,13 +55,7 @@ class AudioClassificationHelper(
     private var totalReadSize: Long = 0
     private lateinit var executor: ScheduledThreadPoolExecutor
     private var classificationJob: Job? = null
-    private val minBufferSize = 0
     private var bufferSize = 0
-
-
-    private val classifyRunnable = Runnable {
-        classifyAudio()
-    }
 
     fun recorderChannelCount(): Int {
         return recorder.channelCount
@@ -109,7 +103,7 @@ class AudioClassificationHelper(
         }
     }
 
-    fun startAudioClassification() {
+    private fun startAudioClassification() {
         if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
             return
         }
@@ -118,13 +112,6 @@ class AudioClassificationHelper(
         readStartTimeMs = System.currentTimeMillis()
         totalReadSize = 0
         executor = ScheduledThreadPoolExecutor(1)
-
-        // Each model will expect a specific audio recording length. This formula calculates that
-        // length using the input buffer size and tensor format sample rate.
-        // For example, YAMNET expects 0.975 second length recordings.
-        // This needs to be in milliseconds to avoid the required Long value dropping decimals.
-        val lengthInMilliSeconds =
-            ((classifier.requiredInputBufferSize * 1.0f) / classifier.requiredTensorAudioFormat.sampleRate) * 1000
 
         bufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
 
