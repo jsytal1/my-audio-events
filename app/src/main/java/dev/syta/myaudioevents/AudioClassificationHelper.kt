@@ -33,7 +33,9 @@ import java.util.concurrent.ScheduledThreadPoolExecutor
 
 interface AudioClassificationListener {
     fun onError(error: String)
-    fun onResult(results: List<Category>, inferenceTime: Long, timestampMs: Long)
+    fun onResult(
+        results: List<Category>, inferenceTime: Long, timestampMs: Long, audioBuffer: FloatArray
+    )
 }
 
 class AudioClassificationHelper(
@@ -53,9 +55,20 @@ class AudioClassificationHelper(
     private var totalReadSize: Long = 0
     private lateinit var executor: ScheduledThreadPoolExecutor
     private var classificationJob: Job? = null
+    private val minBufferSize = 0
+    private var bufferSize = 0
+
 
     private val classifyRunnable = Runnable {
         classifyAudio()
+    }
+
+    fun recorderChannelCount(): Int {
+        return recorder.channelCount
+    }
+
+    fun recorderSampleRate(): Int {
+        return recorder.sampleRate
     }
 
     fun initClassifier() {
@@ -113,35 +126,39 @@ class AudioClassificationHelper(
         val lengthInMilliSeconds =
             ((classifier.requiredInputBufferSize * 1.0f) / classifier.requiredTensorAudioFormat.sampleRate) * 1000
 
-        val bufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
+        bufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
 
         classificationJob = CoroutineScope(Dispatchers.Default).launch {
             // Adjust based on the bit depth and channels.
-            val audioBuffer = FloatArray(bufferSize)
 
             while (isActive) {
-                val result = recorder.read(audioBuffer, 0, bufferSize, AudioRecord.READ_BLOCKING)
-                if (result < 0) {
-                    Log.e("AudioRecord", "Error reading audio")
-                    return@launch
-                }
-
-                if (result == bufferSize) {
-                    totalReadSize += result
-                    tensorAudio.load(audioBuffer, 0, result)
-                    classifyAudio()
-                }
+                classifyAudio()
             }
         }
     }
 
     private fun classifyAudio() {
+        val audioBuffer = FloatArray(bufferSize)
+        val result = recorder.read(audioBuffer, 0, bufferSize, AudioRecord.READ_BLOCKING)
+        if (result < 0) {
+            Log.e("AudioRecord", "Error reading audio")
+            return
+        }
+
+        if (result != bufferSize) {
+            // skip for now for simplicity
+            return
+        }
+
+        totalReadSize += result
+        tensorAudio.load(audioBuffer, 0, result)
+
         val bufferEndTimeMs =
             readStartTimeMs + (totalReadSize * 1000 / tensorAudio.format.sampleRate)
         var inferenceTime = SystemClock.uptimeMillis()
         val output = classifier.classify(tensorAudio)
         inferenceTime = SystemClock.uptimeMillis() - inferenceTime
-        listener.onResult(output[0].categories, inferenceTime, bufferEndTimeMs)
+        listener.onResult(output[0].categories, inferenceTime, bufferEndTimeMs, audioBuffer)
     }
 
     fun stopAudioClassification() {
