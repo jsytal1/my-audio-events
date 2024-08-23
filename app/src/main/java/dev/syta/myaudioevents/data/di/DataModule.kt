@@ -16,6 +16,8 @@ import dev.syta.myaudioevents.data.datastore.UserPreferencesSerializer
 import dev.syta.myaudioevents.data.local.MaeDatabase
 import dev.syta.myaudioevents.data.local.dao.AudioClassDao
 import dev.syta.myaudioevents.data.repository.AudioClassRepository
+import dev.syta.myaudioevents.data.repository.AudioRecordingRepository
+import dev.syta.myaudioevents.data.repository.AudioRecordingRepositoryImpl
 import dev.syta.myaudioevents.data.repository.CompositeUserAudioClassRepository
 import dev.syta.myaudioevents.data.repository.OfflineFirstAudioClassRepository
 import dev.syta.myaudioevents.data.repository.OfflineFirstUserDataRepository
@@ -78,4 +80,9 @@ object DataModule {
         audioClassRepository = audioClassRepository, userDataRepository = userDataRepository
     )
 
+    @Provides
+    @Singleton
+    internal fun providesAudioRecordingRepository(
+        database: MaeDatabase
+    ): AudioRecordingRepository = AudioRecordingRepositoryImpl(database.audioRecordingDao())
 }
