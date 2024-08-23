@@ -4,4 +4,5 @@
     <string name="start_recording">Start Recording</string>
     <string name="recorder_title">Recorder</string>
     <string name="categories_title">Categories</string>
+    <string name="recordings_title">Recordings</string>
 </resources>

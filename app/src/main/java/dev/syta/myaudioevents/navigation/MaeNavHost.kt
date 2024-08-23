@@ -10,6 +10,7 @@ import dev.syta.myaudioevents.ui.MaeAppState
 import dev.syta.myaudioevents.ui.MaeSharedViewModel
 import dev.syta.myaudioevents.ui.screens.categories.CategoriesScreen
 import dev.syta.myaudioevents.ui.screens.recorder.RecorderScreen
+import dev.syta.myaudioevents.ui.screens.recordings.RecordingsScreen
 
 @Composable
 fun MaeNavHost(
@@ -26,6 +27,11 @@ fun MaeNavHost(
     ) {
         composable(Recorder.route) {
             RecorderScreen(
+                sharedViewModel = sharedViewModel,
+            )
+        }
+        composable(Recordings.route) {
+            RecordingsScreen(
                 sharedViewModel = sharedViewModel,
             )
         }

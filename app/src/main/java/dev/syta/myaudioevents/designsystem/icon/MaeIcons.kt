@@ -1,6 +1,7 @@
 package dev.syta.myaudioevents.designsystem.icon
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
@@ -18,4 +19,5 @@ object MaeIcons {
     val Filter = Icons.Filled.Filter
     val Stop = Icons.Filled.Stop
     val Category = Icons.Filled.Category
+    val ViewList = Icons.AutoMirrored.Filled.ViewList
 }
