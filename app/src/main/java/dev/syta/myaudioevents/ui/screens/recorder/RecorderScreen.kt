@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
@@ -27,10 +26,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import dev.syta.myaudioevents.R
 import dev.syta.myaudioevents.designsystem.icon.MaeIcons
+import dev.syta.myaudioevents.services.AudioRecorderState
 import dev.syta.myaudioevents.ui.MaeSharedViewModel
-import dev.syta.myaudioevents.ui.components.lazy.eventplot.LazyEventPlot
-import dev.syta.myaudioevents.ui.components.lazy.eventplot.Marker
-import dev.syta.myaudioevents.ui.components.lazy.eventplot.formattedTime
 import dev.syta.myaudioevents.ui.theme.MaeTheme
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -43,19 +40,22 @@ fun RecorderScreen(
     val context = LocalContext.current
     lateinit var recordAudioPermissionState: PermissionState
 
-    LaunchedEffect(viewModel.isRecording) {
+    LaunchedEffect(viewModel.recordingStatus) {
         sharedViewModel.showFab(
-            icon = if (viewModel.isRecording) MaeIcons.Stop else MaeIcons.Mic,
-            contentDescriptionId = if (viewModel.isRecording) R.string.stop_recording else R.string.start_recording,
+            icon = when (viewModel.recordingStatus) {
+                AudioRecorderState.RECORDING -> MaeIcons.Stop
+                else -> MaeIcons.Mic
+            },
+            contentDescriptionId = when (viewModel.recordingStatus) {
+                AudioRecorderState.RECORDING -> R.string.stop_recording
+                else -> R.string.start_recording
+            },
             onClick = {
-                if (viewModel.isRecording) {
-                    viewModel.stopRecording()
-                } else if (recordAudioPermissionState.status.isGranted) {
-                    viewModel.startRecording()
-                } else if (recordAudioPermissionState.status.shouldShowRationale) {
-                    viewModel.showPermissionRationale()
-                } else {
-                    recordAudioPermissionState.launchPermissionRequest()
+                when {
+                    viewModel.recordingStatus == AudioRecorderState.RECORDING -> viewModel.stopRecording()
+                    recordAudioPermissionState.status.isGranted -> viewModel.startRecording()
+                    recordAudioPermissionState.status.shouldShowRationale -> viewModel.showPermissionRationale()
+                    else -> recordAudioPermissionState.launchPermissionRequest()
                 }
             },
         )
@@ -86,36 +86,36 @@ fun RecorderScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        LazyEventPlot(minMs = viewModel.startTimeMs,
-            maxMsLambda = { System.currentTimeMillis() + 2_000 },
-            eventCount = { viewModel.events.size },
-            dataProvider = viewModel.events::get,
-            labelCount = { viewModel.categories.size },
-            minorTickMs = 1_000,
-            majorTickMs = 60_000,
-            markerWidthMs = 195,
-            minorTickWidth = 64.dp,
-            liveScroll = viewModel.isRecording,
-            minorTick = { timeMs ->
-                dev.syta.myaudioevents.ui.components.lazy.eventplot.MinorTick(
-                    formattedTime(
-                        timeMs, ":ss"
-                    )
-                )
-            },
-            majorTick = { timeMs ->
-                dev.syta.myaudioevents.ui.components.lazy.eventplot.MajorTick(
-                    formattedTime(
-                        timeMs, "HH:mm"
-                    )
-                )
-            },
-            label = { index ->
-                dev.syta.myaudioevents.ui.components.lazy.eventplot.Label(viewModel.categories[index].name)
-            },
-            marker = { idx ->
-                Marker(alpha = viewModel.events[idx].score)
-            })
+//        LazyEventPlot(minMs = viewModel.startTimeMs,
+//            maxMsLambda = { System.currentTimeMillis() + 2_000 },
+//            eventCount = { viewModel.events.size },
+//            dataProvider = viewModel.events::get,
+//            labelCount = { viewModel.categories.size },
+//            minorTickMs = 1_000,
+//            majorTickMs = 60_000,
+//            markerWidthMs = 195,
+//            minorTickWidth = 64.dp,
+//            liveScroll = viewModel.isRecording,
+//            minorTick = { timeMs ->
+//                dev.syta.myaudioevents.ui.components.lazy.eventplot.MinorTick(
+//                    formattedTime(
+//                        timeMs, ":ss"
+//                    )
+//                )
+//            },
+//            majorTick = { timeMs ->
+//                dev.syta.myaudioevents.ui.components.lazy.eventplot.MajorTick(
+//                    formattedTime(
+//                        timeMs, "HH:mm"
+//                    )
+//                )
+//            },
+//            label = { index ->
+//                dev.syta.myaudioevents.ui.components.lazy.eventplot.Label(viewModel.categories[index].name)
+//            },
+//            marker = { idx ->
+//                Marker(alpha = viewModel.events[idx].score)
+//            })
 
         if (viewModel.showPermissionRationale) {
             AlertDialog(
