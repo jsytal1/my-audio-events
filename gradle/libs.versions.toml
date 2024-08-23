@@ -28,6 +28,7 @@ protobuf = "4.26.1"
 protobufPlugin = "0.9.4"
 materialIconsExtended = "1.6.8"
 runtimeLivedata = "1.6.8"
+eventbus = "3.3.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -71,6 +72,7 @@ protobuf-kotlin-lite = { group = "com.google.protobuf", name = "protobuf-kotlin-
 protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata" }
+eventbus = { group = "org.greenrobot", name = "eventbus", version.ref = "eventbus" }
 
 
 [plugins]
