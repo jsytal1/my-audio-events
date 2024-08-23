@@ -5,4 +5,6 @@
     <string name="recorder_title">Recorder</string>
     <string name="categories_title">Categories</string>
     <string name="recordings_title">Recordings</string>
+    <string name="recording_in_progress">Recording in progress</string>
+    <string name="stop">Stop</string>
 </resources>
