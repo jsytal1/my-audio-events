@@ -7,7 +7,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.MediaRecorder
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -22,10 +23,14 @@ import dev.syta.myaudioevents.data.repository.AudioRecordingRepository
 import dev.syta.myaudioevents.utilities.AUDIO_RECORDING_PATH
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
+import org.tensorflow.lite.support.audio.TensorAudio
+import org.tensorflow.lite.task.audio.classifier.AudioClassifier
+import org.tensorflow.lite.task.core.BaseOptions
 import java.io.File
-import java.io.IOException
 import javax.inject.Inject
 
 private const val LOGGER_TAG = "AUDIO_RECORDER_SERVICE"
@@ -48,18 +53,23 @@ class AudioRecorderService : Service() {
     @Inject
     lateinit var audioRecordingRepository: AudioRecordingRepository
 
-    companion object {
-        var isRunning = false
-
-        const val STOP_RECORDING_REQUEST_CODE = 1
-        const val OPEN_APP_REQUEST_CODE = 2
-    }
-
     private lateinit var baseDir: String
 
     private var audioRecorderState: AudioRecorderState = AudioRecorderState.IDLE
     private var currentRecordingPath: String = ""
-    private var recorder: MediaRecorder? = null
+    private var modelFile: String = DEFAULT_MODEL
+    private var scoreThreshold: Float = DEFAULT_SCORE_THRESHOLD
+    private var maxResults: Int = DEFAULT_MAX_RESULTS
+    private var overlap: Float = DEFAULT_OVERLAP_VALUE
+    private var numThreads: Int = DEFAULT_NUM_THREADS
+    private lateinit var recorder: AudioRecord
+    private lateinit var classifier: AudioClassifier
+    private lateinit var tensorAudio: TensorAudio
+    private var classificationJob: Job? = null
+    private var audioPacketBufferSize: Int = 0
+    private lateinit var floatAudioBuffer: FloatArray
+    private lateinit var shortAudioBuffer: ShortArray
+
 
     override fun onCreate() {
         super.onCreate()
@@ -101,6 +111,23 @@ class AudioRecorderService : Service() {
         isRunning = false
     }
 
+    private fun initClassifier() {
+        val baseOptionsBuilder = BaseOptions.builder().setNumThreads(numThreads)
+        val options =
+            AudioClassifier.AudioClassifierOptions.builder().setScoreThreshold(scoreThreshold)
+                .setMaxResults(maxResults).setBaseOptions(baseOptionsBuilder.build())
+                .build()
+        try {
+            classifier = AudioClassifier.createFromFileAndOptions(
+                applicationContext, modelFile, options
+            )
+            tensorAudio = classifier.createInputTensorAudio()
+            recorder = classifier.createAudioRecord()
+        } catch (e: Exception) {
+            Log.e(LOGGER_TAG, "Classifier failed to load with error: " + e.message)
+        }
+    }
+
     private fun startRecording() {
         val recordingsDir = File(baseDir)
         if (!recordingsDir.exists()) {
@@ -112,24 +139,61 @@ class AudioRecorderService : Service() {
             Log.d(LOGGER_TAG, "Recording already in progress")
             return
         }
-        currentRecordingPath = "$baseDir/${createFilename()}"
-        recorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(currentRecordingPath)
-            try {
-                prepare()
-                start()
-                Log.d(LOGGER_TAG, "Starting recording")
-                audioRecorderState = AudioRecorderState.RECORDING
-                startForeground(FOREGROUND_NOTIFICATION_ID, showNotification())
-            } catch (e: IOException) {
-                Log.e(LOGGER_TAG, "Failed to start recording: ${e.message}")
+        initClassifier()
+        initializeAudioBuffers()
+        recorder.startRecording()
+        classificationJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive) {
+                loadAudio()
+                val results = classifier.classify(tensorAudio)
+
+                // TODO: compare performance when using Dispatchers.Default
+//                val results = withContext(Dispatchers.Default) {
+//                    classifier.classify(tensorAudio)
+//                }
+
+                Log.d(LOGGER_TAG, "Results: $results")
             }
         }
+        audioRecorderState = AudioRecorderState.RECORDING
+        startForeground(FOREGROUND_NOTIFICATION_ID, showNotification())
+
         broadcastStatus()
     }
+
+    private fun initializeAudioBuffers() {
+        audioPacketBufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
+        if (recorder.audioFormat == AudioFormat.ENCODING_PCM_FLOAT) {
+            floatAudioBuffer = FloatArray(audioPacketBufferSize)
+        } else {
+            shortAudioBuffer = ShortArray(audioPacketBufferSize)
+        }
+    }
+
+    private fun loadAudio() {
+        if (recorder.audioFormat == AudioFormat.ENCODING_PCM_FLOAT) {
+            val readSize = recorder.read(
+                floatAudioBuffer, 0, audioPacketBufferSize, AudioRecord.READ_BLOCKING
+            )
+            if (readSize > 0) {
+                tensorAudio.load(floatAudioBuffer)
+            }
+        } else {
+            val shortAudioBuffer = ShortArray(audioPacketBufferSize)
+            val readSize = recorder.read(
+                shortAudioBuffer, 0, audioPacketBufferSize, AudioRecord.READ_BLOCKING
+            )
+            if (readSize > 0) {
+                val floatData = FloatArray(readSize)
+                for (i in 0 until readSize) {
+                    // Convert to PCM Float encoding (values between -1 and 1)
+                    floatData[i] = shortAudioBuffer[i] * 1f / Short.MAX_VALUE
+                }
+                tensorAudio.load(floatData)
+            }
+        }
+    }
+
 
     private fun showNotification(): Notification {
         Log.d(LOGGER_TAG, "Showing notification")
@@ -140,9 +204,7 @@ class AudioRecorderService : Service() {
             setContentIntent(getOpenAppIntent())
             addAction(
                 NotificationCompat.Action(
-                    R.drawable.baseline_stop_24,
-                    getString(R.string.stop),
-                    getStopRecordingIntent()
+                    R.drawable.baseline_stop_24, getString(R.string.stop), getStopRecordingIntent()
                 )
             )
         }.build()
@@ -152,10 +214,7 @@ class AudioRecorderService : Service() {
         val stopRecordingIntent = Intent(context, AudioRecorderService::class.java)
         stopRecordingIntent.action = ACTION_STOP_RECORDING
         return PendingIntent.getService(
-            context,
-            STOP_RECORDING_REQUEST_CODE,
-            stopRecordingIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            context, STOP_RECORDING_REQUEST_CODE, stopRecordingIntent, PendingIntent.FLAG_IMMUTABLE
         )
     }
 
@@ -163,29 +222,22 @@ class AudioRecorderService : Service() {
         val openAppIntent = Intent(context, MainActivity::class.java)
         openAppIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         return PendingIntent.getActivity(
-            context,
-            OPEN_APP_REQUEST_CODE,
-            openAppIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            context, OPEN_APP_REQUEST_CODE, openAppIntent, PendingIntent.FLAG_IMMUTABLE
         )
     }
 
     private fun stopRecording() {
         if (audioRecorderState == AudioRecorderState.RECORDING) {
-            stopMediaRecorder()
+            recorder.stop()
+            recorder.release()
+            classificationJob?.cancel()
+            Log.d(LOGGER_TAG, "Stopping recording")
+
             finalizeRecording(currentRecordingPath, 60000, 1024 * 1024) // Example values
             audioRecorderState = AudioRecorderState.IDLE
             currentRecordingPath = ""
         }
         broadcastStatus()
-    }
-
-    private fun stopMediaRecorder() {
-        recorder?.apply {
-            stop()
-            release()
-        }
-        recorder = null
     }
 
     private fun finalizeRecording(filePath: String, durationMillis: Int, fileSize: Int) {
@@ -216,5 +268,18 @@ class AudioRecorderService : Service() {
 
     private fun createFilename(): String {
         return "${System.currentTimeMillis()}.wav"
+    }
+
+    companion object {
+        var isRunning = false
+
+        const val STOP_RECORDING_REQUEST_CODE = 1
+        const val OPEN_APP_REQUEST_CODE = 2
+
+        const val DEFAULT_MODEL = "yamnet.tflite"
+        const val DEFAULT_SCORE_THRESHOLD = 0.3f
+        const val DEFAULT_MAX_RESULTS = 10
+        const val DEFAULT_OVERLAP_VALUE = 0.5f
+        const val DEFAULT_NUM_THREADS = 2
     }
 }
