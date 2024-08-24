@@ -5,7 +5,9 @@ import dev.syta.myaudioevents.data.model.mapToUserAudioClasses
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -34,11 +36,14 @@ class CompositeUserAudioClassRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun followedAudioClassNames(): Flow<Set<String>> =
-        userDataRepository.userData.flatMapConcat { userData ->
-            audioClassRepository.getAudioClasses(ids = userData.followedAudioClasses)
-                .map { audioClasses ->
-                    audioClasses.map { it.name }.toSet()
+        userDataRepository.userData.map { it.followedAudioClasses }.distinctUntilChanged()
+            .flatMapLatest { followedAudioClasses ->
+                when {
+                    followedAudioClasses.isEmpty() -> flowOf(emptySet())
+                    else -> audioClassRepository.getAudioClasses(ids = followedAudioClasses).map {
+                        it.map { it.name }.toSet()
+                    }
                 }
-        }
+            }
 
 }
