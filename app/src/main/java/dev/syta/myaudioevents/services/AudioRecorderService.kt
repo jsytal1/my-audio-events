@@ -85,7 +85,7 @@ class AudioRecorderService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        baseDir = "${context.getExternalFilesDir(null)}/$AUDIO_RECORDING_PATH"
+        baseDir = "${context.filesDir}/$AUDIO_RECORDING_PATH"
 
         createNotificationChannel()
     }
