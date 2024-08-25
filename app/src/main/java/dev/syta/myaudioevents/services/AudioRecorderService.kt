@@ -73,6 +73,8 @@ class AudioRecorderService : Service() {
     private var classificationJob: Job? = null
     private var watchJob: Job? = null
     private var audioPacketBufferSize: Int = 0
+    private var sampleRate: Int? = 0
+    private var channelCount: Int? = 0
     private lateinit var audioBuffer: FloatArray
     private var audioBufferQueue: LinkedList<FloatArray> = LinkedList()
     private var maxBufferQueueSize = 4
@@ -130,6 +132,8 @@ class AudioRecorderService : Service() {
             )
             tensorAudio = classifier.createInputTensorAudio()
             recorder = classifier.createAudioRecord()
+            sampleRate = recorder.sampleRate
+            channelCount = recorder.channelCount
         } catch (e: Exception) {
             Log.e(LOGGER_TAG, "Classifier failed to load with error: " + e.message)
         }
@@ -173,7 +177,12 @@ class AudioRecorderService : Service() {
         val shouldSave = shouldSaveForResults(results)
         if (shouldSave) {
             if (wavOutput == null) {
-                wavOutput = WavFile(baseDir, createFilename())
+                wavOutput = WavFile(
+                    baseDir = baseDir,
+                    fileName = createFilename(),
+                    channelCount = channelCount!!.toShort(),
+                    sampleRate = sampleRate!!
+                )
                 writeBufferQueue()
             }
 
@@ -196,7 +205,9 @@ class AudioRecorderService : Service() {
     }
 
     private fun writeBuffer(buffer: FloatArray) {
-        buffer.let { wavOutput!!.write(it, buffer.size) }
+        buffer.let {
+            wavOutput!!.write(it, buffer.size)
+        }
     }
 
 

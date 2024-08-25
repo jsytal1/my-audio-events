@@ -11,8 +11,8 @@ private const val BITS_PER_SAMPLE: Short = 16
 class WavFile(
     baseDir: String,
     fileName: String,
-    private val channelCount: Short = 1,
-    private val sampleRate: Int = 44100,
+    private val channelCount: Short,
+    private val sampleRate: Int,
 ) : Closeable {
     val file: File = File(baseDir, fileName)
     private val outputStream = file.outputStream()
@@ -33,25 +33,22 @@ class WavFile(
         private set
 
     fun write(floatSamples: FloatArray, len: Int) {
-        val byteBuf = ByteBuffer.allocate(2 * len).order(ByteOrder.LITTLE_ENDIAN)
+        val byteBuffer = ByteBuffer.allocate(2 * len).order(ByteOrder.LITTLE_ENDIAN)
 
-        val shortBuffer = byteBuf.asShortBuffer()
-
-        floatSamples.take(len).forEach { floatSample ->
+        for (i in 0 until len) {
+            val floatSample = floatSamples[i]
             val shortSample = (floatSample * Short.MAX_VALUE).toInt()
                 .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-            shortBuffer.put(shortSample)
+            byteBuffer.putShort(shortSample)
         }
 
-        byteBuf.flip()
+        byteBuffer.flip()
 
-        durationMillis += (len.toDouble() / sampleRate * 1000).toInt()
-        sizeBytes += byteBuf.limit()
-        outputStream.channel.write(byteBuf)
+        outputStream.channel.write(byteBuffer)
     }
 
     private fun writeWavHeader() {
-        val fileSize = outputStream.channel.position().toInt() - HEADER_SIZE
+        val fileSize = outputStream.channel.position().toInt()
 
         val riffHeaderSize = 8 // len("RIFF") + # of bytes in the file size field
 
@@ -77,7 +74,9 @@ class WavFile(
             putShort(BITS_PER_SAMPLE)
             put("data".toByteArray(Charsets.US_ASCII))
             putInt(fileSize - HEADER_SIZE)
+
         }
+        header.flip()
         outputStream.channel.write(header, 0)
     }
 }
