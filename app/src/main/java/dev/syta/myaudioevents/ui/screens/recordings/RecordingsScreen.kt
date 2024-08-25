@@ -40,14 +40,14 @@ fun RecordingsScreen(
 fun RecordingsScreenContent(
     uiState: RecordingsScreenUiState,
 ) {
-    when (val s = uiState) {
+    when (uiState) {
         RecordingsScreenUiState.Loading -> {
             Text("Loading")
         }
 
         is RecordingsScreenUiState.Ready -> {
             RecordingsList(
-                recordingList = s.recordingList,
+                recordingList = uiState.recordingList,
             )
         }
     }
