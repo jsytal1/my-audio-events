@@ -77,7 +77,9 @@ class AudioRecorderService : Service() {
     private var channelCount: Int? = 0
     private lateinit var audioBuffer: FloatArray
     private var audioBufferQueue: LinkedList<FloatArray> = LinkedList()
-    private var maxBufferQueueSize = 4
+    private var maxBufferQueueSize = 2
+    private var lastSaveTime = 0L
+    private val saveExtraTime = 1000L
 
     private var followedAudioClassesNames = emptySet<String>()
 
@@ -175,6 +177,7 @@ class AudioRecorderService : Service() {
 
     private fun maybeSaveAudio(results: Classifications) {
         val shouldSave = shouldSaveForResults(results)
+        val currTime = System.currentTimeMillis()
         if (shouldSave) {
             if (wavOutput == null) {
                 wavOutput = WavFile(
@@ -186,10 +189,13 @@ class AudioRecorderService : Service() {
                 writeBufferQueue()
             }
 
+            lastSaveTime = currTime
+            writeBuffer(audioBuffer)
+        } else if (saveExtraTime > currTime - lastSaveTime) {
             writeBuffer(audioBuffer)
         } else {
             finalizeRecording()
-            if (audioBufferQueue.size > maxBufferQueueSize) {
+            if (audioBufferQueue.size == maxBufferQueueSize) {
                 audioBufferQueue.poll()
             }
             audioBufferQueue.add(audioBuffer.copyOf())
