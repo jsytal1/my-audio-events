@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.AudioFormat
 import android.media.AudioRecord
 import android.os.Build
 import android.os.IBinder
@@ -20,6 +19,7 @@ import dev.syta.myaudioevents.R
 import dev.syta.myaudioevents.data.event.Events
 import dev.syta.myaudioevents.data.model.AudioRecording
 import dev.syta.myaudioevents.data.repository.AudioRecordingRepository
+import dev.syta.myaudioevents.data.repository.UserAudioClassRepository
 import dev.syta.myaudioevents.utilities.AUDIO_RECORDING_PATH
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +29,10 @@ import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import org.tensorflow.lite.support.audio.TensorAudio
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier
+import org.tensorflow.lite.task.audio.classifier.Classifications
 import org.tensorflow.lite.task.core.BaseOptions
 import java.io.File
+import java.util.LinkedList
 import javax.inject.Inject
 
 private const val LOGGER_TAG = "AUDIO_RECORDER_SERVICE"
@@ -53,10 +55,13 @@ class AudioRecorderService : Service() {
     @Inject
     lateinit var audioRecordingRepository: AudioRecordingRepository
 
+    @Inject
+    lateinit var userAudioClassRepository: UserAudioClassRepository
+
     private lateinit var baseDir: String
 
     private var audioRecorderState: AudioRecorderState = AudioRecorderState.IDLE
-    private var currentRecordingPath: String = ""
+    private var wavOutput: WavFile? = null
     private var modelFile: String = DEFAULT_MODEL
     private var scoreThreshold: Float = DEFAULT_SCORE_THRESHOLD
     private var maxResults: Int = DEFAULT_MAX_RESULTS
@@ -66,10 +71,13 @@ class AudioRecorderService : Service() {
     private lateinit var classifier: AudioClassifier
     private lateinit var tensorAudio: TensorAudio
     private var classificationJob: Job? = null
+    private var watchJob: Job? = null
     private var audioPacketBufferSize: Int = 0
-    private lateinit var floatAudioBuffer: FloatArray
-    private lateinit var shortAudioBuffer: ShortArray
+    private lateinit var audioBuffer: FloatArray
+    private var audioBufferQueue: LinkedList<FloatArray> = LinkedList()
+    private var maxBufferQueueSize = 4
 
+    private var followedAudioClassesNames = emptySet<String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -95,7 +103,7 @@ class AudioRecorderService : Service() {
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        Log.d(LOGGER_TAG, "onStartCommand")
+
         when (intent.action) {
             ACTION_STOP_RECORDING -> stopRecording()
             else -> startRecording()
@@ -104,8 +112,8 @@ class AudioRecorderService : Service() {
     }
 
     override fun onDestroy() {
-        Log.d(LOGGER_TAG, "onDestroy")
         super.onDestroy()
+        watchJob?.cancel()
         stopRecording()
         stopSelf()
         isRunning = false
@@ -115,8 +123,7 @@ class AudioRecorderService : Service() {
         val baseOptionsBuilder = BaseOptions.builder().setNumThreads(numThreads)
         val options =
             AudioClassifier.AudioClassifierOptions.builder().setScoreThreshold(scoreThreshold)
-                .setMaxResults(maxResults).setBaseOptions(baseOptionsBuilder.build())
-                .build()
+                .setMaxResults(maxResults).setBaseOptions(baseOptionsBuilder.build()).build()
         try {
             classifier = AudioClassifier.createFromFileAndOptions(
                 applicationContext, modelFile, options
@@ -136,23 +143,24 @@ class AudioRecorderService : Service() {
 
         isRunning = true
         if (audioRecorderState == AudioRecorderState.RECORDING) {
-            Log.d(LOGGER_TAG, "Recording already in progress")
             return
         }
         initClassifier()
-        initializeAudioBuffers()
+        initializeAudioBuffer()
         recorder.startRecording()
+
+        watchJob = CoroutineScope(Dispatchers.IO).launch {
+            userAudioClassRepository.followedAudioClassNames().collect { latestNames ->
+                followedAudioClassesNames = latestNames
+            }
+        }
+
         classificationJob = CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
                 loadAudio()
-                val results = classifier.classify(tensorAudio)
+                val results = classifier.classify(tensorAudio)[0]
 
-                // TODO: compare performance when using Dispatchers.Default
-//                val results = withContext(Dispatchers.Default) {
-//                    classifier.classify(tensorAudio)
-//                }
-
-                Log.d(LOGGER_TAG, "Results: $results")
+                maybeSaveAudio(results)
             }
         }
         audioRecorderState = AudioRecorderState.RECORDING
@@ -161,42 +169,62 @@ class AudioRecorderService : Service() {
         broadcastStatus()
     }
 
-    private fun initializeAudioBuffers() {
-        audioPacketBufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
-        if (recorder.audioFormat == AudioFormat.ENCODING_PCM_FLOAT) {
-            floatAudioBuffer = FloatArray(audioPacketBufferSize)
+    private fun maybeSaveAudio(results: Classifications) {
+        val shouldSave = shouldSaveForResults(results)
+        if (shouldSave) {
+            if (wavOutput == null) {
+                wavOutput = WavFile(baseDir, createFilename())
+                writeBufferQueue()
+            }
+
+            writeBuffer(audioBuffer)
         } else {
-            shortAudioBuffer = ShortArray(audioPacketBufferSize)
+            finalizeRecording()
+            if (audioBufferQueue.size > maxBufferQueueSize) {
+                audioBufferQueue.poll()
+            }
+            audioBufferQueue.add(audioBuffer.copyOf())
         }
     }
 
-    private fun loadAudio() {
-        if (recorder.audioFormat == AudioFormat.ENCODING_PCM_FLOAT) {
-            val readSize = recorder.read(
-                floatAudioBuffer, 0, audioPacketBufferSize, AudioRecord.READ_BLOCKING
-            )
-            if (readSize > 0) {
-                tensorAudio.load(floatAudioBuffer)
-            }
-        } else {
-            val shortAudioBuffer = ShortArray(audioPacketBufferSize)
-            val readSize = recorder.read(
-                shortAudioBuffer, 0, audioPacketBufferSize, AudioRecord.READ_BLOCKING
-            )
-            if (readSize > 0) {
-                val floatData = FloatArray(readSize)
-                for (i in 0 until readSize) {
-                    // Convert to PCM Float encoding (values between -1 and 1)
-                    floatData[i] = shortAudioBuffer[i] * 1f / Short.MAX_VALUE
-                }
-                tensorAudio.load(floatData)
-            }
+
+    private fun writeBufferQueue() {
+        while (audioBufferQueue.isNotEmpty()) {
+            val buffer = audioBufferQueue.poll()
+            buffer?.let { writeBuffer(it) }
         }
+    }
+
+    private fun writeBuffer(buffer: FloatArray) {
+        buffer.let { wavOutput!!.write(it, buffer.size) }
+    }
+
+
+    private fun shouldSaveForResults(results: Classifications?): Boolean {
+        val categories = results?.categories ?: emptyList()
+        if (followedAudioClassesNames.isEmpty()) {
+            return false
+        }
+        return categories.any { it.label in followedAudioClassesNames }
+    }
+
+
+    private fun initializeAudioBuffer() {
+        audioPacketBufferSize = (classifier.requiredInputBufferSize * (1 - overlap)).toInt()
+        audioBuffer = FloatArray(audioPacketBufferSize)
+    }
+
+    private fun loadAudio(): Int {
+        val readSize =
+            recorder.read(audioBuffer, 0, audioPacketBufferSize, AudioRecord.READ_BLOCKING)
+        if (readSize > 0) {
+            tensorAudio.load(audioBuffer, 0, readSize)
+        }
+        return readSize
     }
 
 
     private fun showNotification(): Notification {
-        Log.d(LOGGER_TAG, "Showing notification")
         return NotificationCompat.Builder(context, CHANNEL_ID).apply {
             setSmallIcon(R.drawable.baseline_mic_24)
             setContentTitle(getString(R.string.app_name))
@@ -231,19 +259,33 @@ class AudioRecorderService : Service() {
             recorder.stop()
             recorder.release()
             classificationJob?.cancel()
-            Log.d(LOGGER_TAG, "Stopping recording")
 
-            finalizeRecording(currentRecordingPath, 60000, 1024 * 1024) // Example values
+            finalizeRecording()
             audioRecorderState = AudioRecorderState.IDLE
-            currentRecordingPath = ""
         }
         broadcastStatus()
     }
 
-    private fun finalizeRecording(filePath: String, durationMillis: Int, fileSize: Int) {
-        CoroutineScope(Dispatchers.IO).launch {
-            saveRecordingToDatabase("New Recording", filePath, durationMillis, fileSize)
+    private fun finalizeRecording() {
+        if (wavOutput == null) {
+            return
         }
+
+        wavOutput!!.close()
+        val durationMillis = wavOutput!!.durationMillis
+        val startTime = System.currentTimeMillis() - durationMillis
+        val name = "Recording at $startTime"
+        val filePath = wavOutput!!.file.absolutePath
+        val sizeBytes = wavOutput!!.sizeBytes
+        CoroutineScope(Dispatchers.IO).launch {
+            saveRecordingToDatabase(
+                name = name,
+                filePath = filePath,
+                durationMillis = durationMillis,
+                sizeBytes = sizeBytes
+            )
+        }
+        wavOutput = null
     }
 
     private suspend fun saveRecordingToDatabase(
@@ -262,7 +304,6 @@ class AudioRecorderService : Service() {
 
 
     private fun broadcastStatus() {
-        Log.d(LOGGER_TAG, "Broadcasting status: $audioRecorderState")
         EventBus.getDefault().post(Events.AudioRecorderState(audioRecorderState))
     }
 
