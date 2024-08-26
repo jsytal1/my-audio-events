@@ -53,11 +53,13 @@ class RecordListViewModel @Inject constructor(
     }
 
     private fun startPositionUpdater() {
+        val duration = playbackStateFlow.value.activeAudio?.durationMillis?.toLong() ?: 1000L
+        val delay = duration / 100
         viewModelScope.launch {
             while (playbackStateFlow.value.isPlaying) {
                 val currentPosition = player.currentPosition
                 updatePlaybackState(currentPosition = currentPosition)
-                delay(1000)  // Update frequency, adjust as needed
+                delay(delay)
             }
         }
     }
@@ -80,6 +82,7 @@ class RecordListViewModel @Inject constructor(
     private fun resumePlaying() {
         player.start()
         updatePlaybackState(isPlaying = true)
+        startPositionUpdater()
     }
 
     private fun stopPlaying() {

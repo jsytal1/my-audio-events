@@ -89,8 +89,7 @@ fun RecordList(
                 onPlay = { viewModel.play(recording) },
                 togglePlay = { if (isActive) viewModel.togglePlay() },
                 progress = {
-                    val duration = recording.durationMillis
-                    if (duration == 0) 0f else
+                    if (recording.durationMillis == 0) 0f else
                         playbackState.currentPosition.toFloat() / recording.durationMillis
                 }
             )
