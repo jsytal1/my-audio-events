@@ -45,6 +45,8 @@ class WavFile(
         byteBuffer.flip()
 
         outputStream.channel.write(byteBuffer)
+        sizeBytes += 2 * len
+        durationMillis += (len * 1000) / sampleRate
     }
 
     private fun writeWavHeader() {
