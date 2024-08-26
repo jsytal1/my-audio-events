@@ -1,4 +1,4 @@
-package dev.syta.myaudioevents.ui.screens.recordings
+package dev.syta.myaudioevents.ui.screens.record_list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,30 +11,30 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
-class RecordingsViewModel @Inject constructor(
+class RecordListViewModel @Inject constructor(
     audioRecordingRepository: AudioRecordingRepository
 ) : ViewModel() {
-    private val recordingsFlow = audioRecordingRepository.getAudioRecordings()
+    private val recordListFlow = audioRecordingRepository.getAudioRecordings()
 
-    val uiState = recordingsFlow.map { recordings ->
-        if (recordings.isEmpty()) {
-            RecordingsScreenUiState.Loading
+    val uiState = recordListFlow.map { recordList ->
+        if (recordList.isEmpty()) {
+            RecordListScreenUiState.Loading
         } else {
-            RecordingsScreenUiState.Ready(
-                recordingList = recordings,
+            RecordListScreenUiState.Ready(
+                recordList = recordList,
             )
         }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        RecordingsScreenUiState.Loading,
+        RecordListScreenUiState.Loading,
     )
 
 }
 
-sealed interface RecordingsScreenUiState {
-    data object Loading : RecordingsScreenUiState
+sealed interface RecordListScreenUiState {
+    data object Loading : RecordListScreenUiState
     data class Ready(
-        val recordingList: List<AudioRecording>,
-    ) : RecordingsScreenUiState
+        val recordList: List<AudioRecording>,
+    ) : RecordListScreenUiState
 }

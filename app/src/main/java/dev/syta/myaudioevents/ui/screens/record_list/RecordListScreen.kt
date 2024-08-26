@@ -1,4 +1,4 @@
-package dev.syta.myaudioevents.ui.screens.recordings
+package dev.syta.myaudioevents.ui.screens.record_list
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,8 +22,8 @@ import dev.syta.myaudioevents.data.model.AudioRecording
 import dev.syta.myaudioevents.ui.MaeSharedViewModel
 
 @Composable
-fun RecordingsScreen(
-    viewModel: RecordingsViewModel = hiltViewModel(),
+fun RecordListScreen(
+    viewModel: RecordListViewModel = hiltViewModel(),
     sharedViewModel: MaeSharedViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -31,23 +31,23 @@ fun RecordingsScreen(
         sharedViewModel.hideFab()
     }
 
-    RecordingsScreenContent(
+    RecordListScreenContent(
         uiState = uiState,
     )
 }
 
 @Composable
-fun RecordingsScreenContent(
-    uiState: RecordingsScreenUiState,
+fun RecordListScreenContent(
+    uiState: RecordListScreenUiState,
 ) {
     when (uiState) {
-        RecordingsScreenUiState.Loading -> {
+        RecordListScreenUiState.Loading -> {
             Text("Loading")
         }
 
-        is RecordingsScreenUiState.Ready -> {
-            RecordingsList(
-                recordingList = uiState.recordingList,
+        is RecordListScreenUiState.Ready -> {
+            RecordList(
+                recordingList = uiState.recordList,
             )
         }
     }
@@ -55,7 +55,7 @@ fun RecordingsScreenContent(
 
 
 @Composable
-fun RecordingsList(
+fun RecordList(
     recordingList: List<AudioRecording>,
 ) {
     LazyColumn(
