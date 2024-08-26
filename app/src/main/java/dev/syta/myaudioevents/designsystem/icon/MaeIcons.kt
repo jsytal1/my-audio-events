@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Filter
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 
@@ -20,4 +22,6 @@ object MaeIcons {
     val Stop = Icons.Filled.Stop
     val Category = Icons.Filled.Category
     val ViewList = Icons.AutoMirrored.Filled.ViewList
+    val Play = Icons.Filled.PlayArrow
+    val Pause = Icons.Filled.Pause
 }
