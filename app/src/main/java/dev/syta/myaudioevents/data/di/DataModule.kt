@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
-import androidx.room.Room
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,13 +34,7 @@ object DataModule {
     @Singleton
     fun providesMaeDatabase(
         @ApplicationContext context: Context
-    ): MaeDatabase = Room
-        .databaseBuilder(
-            context,
-            MaeDatabase::class.java,
-            "mae-database",
-        )
-        .build()
+    ): MaeDatabase = MaeDatabase.getInstance(context)
 
     @Provides
     @Singleton
