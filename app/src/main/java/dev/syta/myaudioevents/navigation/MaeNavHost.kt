@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import dev.syta.myaudioevents.ui.MaeAppState
 import dev.syta.myaudioevents.ui.MaeSharedViewModel
 import dev.syta.myaudioevents.ui.screens.categories.CategoriesScreen
+import dev.syta.myaudioevents.ui.screens.label_list.LabelListScreen
 import dev.syta.myaudioevents.ui.screens.record_list.RecordListScreen
 import dev.syta.myaudioevents.ui.screens.recorder.RecorderScreen
 
@@ -40,5 +41,11 @@ fun MaeNavHost(
                 sharedViewModel = sharedViewModel,
             )
         }
+        composable(LabelList.route) {
+            LabelListScreen(
+                sharedViewModel = sharedViewModel,
+            )
+        }
     }
 }
+

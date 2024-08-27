@@ -7,4 +7,7 @@
     <string name="recordings_title">Recordings</string>
     <string name="recording_in_progress">Recording in progress</string>
     <string name="stop">Stop</string>
+    <string name="labels_title">Labels</string>
+    <string name="add_label">Add a Label</string>
+    <string name="delete_label">Delete</string>
 </resources>

@@ -15,11 +15,14 @@ import dev.syta.myaudioevents.data.datastore.MaePreferencesDataSource
 import dev.syta.myaudioevents.data.datastore.UserPreferencesSerializer
 import dev.syta.myaudioevents.data.local.MaeDatabase
 import dev.syta.myaudioevents.data.local.dao.AudioClassDao
+import dev.syta.myaudioevents.data.local.dao.LabelDao
 import dev.syta.myaudioevents.data.repository.AudioClassRepository
 import dev.syta.myaudioevents.data.repository.AudioRecordingRepository
 import dev.syta.myaudioevents.data.repository.AudioRecordingRepositoryImpl
 import dev.syta.myaudioevents.data.repository.CompositeUserAudioClassRepository
+import dev.syta.myaudioevents.data.repository.LabelRepository
 import dev.syta.myaudioevents.data.repository.OfflineFirstAudioClassRepository
+import dev.syta.myaudioevents.data.repository.OfflineFirstLabelRepository
 import dev.syta.myaudioevents.data.repository.OfflineFirstUserDataRepository
 import dev.syta.myaudioevents.data.repository.UserAudioClassRepository
 import dev.syta.myaudioevents.data.repository.UserDataRepository
@@ -32,17 +35,25 @@ object DataModule {
     @Singleton
     fun providesMaeDatabase(
         @ApplicationContext context: Context
-    ): MaeDatabase = Room.databaseBuilder(
-        context,
-        MaeDatabase::class.java,
-        "mae-database",
-    ).build()
+    ): MaeDatabase = Room
+        .databaseBuilder(
+            context,
+            MaeDatabase::class.java,
+            "mae-database",
+        )
+        .build()
 
     @Provides
     @Singleton
     fun providesAudioClassDao(
         database: MaeDatabase
     ): AudioClassDao = database.audioClassDao()
+
+    @Provides
+    @Singleton
+    fun providesLabelsDao(
+        database: MaeDatabase
+    ): LabelDao = database.labelDao()
 
     @Provides
     @Singleton
@@ -85,4 +96,10 @@ object DataModule {
     internal fun providesAudioRecordingRepository(
         database: MaeDatabase
     ): AudioRecordingRepository = AudioRecordingRepositoryImpl(database.audioRecordingDao())
+
+    @Provides
+    @Singleton
+    internal fun providesLabelRepository(
+        labelDao: LabelDao
+    ): LabelRepository = OfflineFirstLabelRepository(labelDao)
 }

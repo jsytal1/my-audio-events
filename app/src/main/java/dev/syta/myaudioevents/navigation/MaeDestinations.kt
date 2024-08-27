@@ -31,4 +31,11 @@ data object Categories : MaeTopLevelDestination {
     override val route = "categories"
 }
 
-val TopLevelDestinations: List<MaeTopLevelDestination> = listOf(Recorder, Recordings, Categories)
+data object LabelList : MaeTopLevelDestination {
+    override val icon = MaeIcons.Label
+    override val labelId = R.string.labels_title
+    override val route = "labels"
+}
+
+val TopLevelDestinations: List<MaeTopLevelDestination> =
+    listOf(Recorder, Recordings, Categories, LabelList)
