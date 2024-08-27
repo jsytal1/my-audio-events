@@ -102,9 +102,7 @@ class AudioRecordingRepositoryImpl(
 }
 
 suspend fun copyFileFromAssets(
-    assetManager: AssetManager,
-    assetFilePath: String,
-    outputFile: String
+    assetManager: AssetManager, assetFilePath: String, outputFile: String
 ) {
     withContext(Dispatchers.IO) {
         val inputStream = assetManager.open(assetFilePath)
