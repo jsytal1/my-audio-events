@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.syta.myaudioevents.data.model.AudioRecording
 import dev.syta.myaudioevents.data.repository.AudioRecordingRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,26 +18,37 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RecordListViewModel @Inject constructor(
-    audioRecordingRepository: AudioRecordingRepository
+    private val audioRecordingRepository: AudioRecordingRepository
 ) : ViewModel() {
     private var player = MediaPlayer()
     private val playbackStateFlow = MutableStateFlow(PlaybackState())
+    private val _selectedItem = MutableStateFlow<AudioRecording?>(null)
+    private val _showDeleteDialog = MutableStateFlow(false)
 
     override fun onCleared() {
         super.onCleared()
         player.release()
     }
 
-    val uiState: StateFlow<RecordListScreenUiState> = audioRecordingRepository.getAudioRecordings()
-        .combine(playbackStateFlow) { recordList, playbackState ->
-            if (recordList.isEmpty()) {
-                RecordListScreenUiState.Loading
-            } else {
-                RecordListScreenUiState.Ready(recordList, playbackState)
-            }
-        }.stateIn(
-            viewModelScope, SharingStarted.WhileSubscribed(5000), RecordListScreenUiState.Loading
-        )
+    val uiState: StateFlow<RecordListScreenUiState> = combine(
+        audioRecordingRepository.getAudioRecordings(),
+        playbackStateFlow,
+        _selectedItem,
+        _showDeleteDialog,
+    ) { recordList, playbackState, selectedAudio, showDeleteDialog ->
+        if (recordList.isEmpty()) {
+            RecordListScreenUiState.Loading
+        } else {
+            RecordListScreenUiState.Ready(
+                recordList,
+                playbackState,
+                selectedAudio,
+                showDeleteDialog
+            )
+        }
+    }.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), RecordListScreenUiState.Loading
+    )
 
     fun play(audioRecording: AudioRecording) {
         player.apply {
@@ -50,6 +62,30 @@ class RecordListViewModel @Inject constructor(
         }
         updatePlaybackState(isPlaying = true, currentAudio = audioRecording)
         startPositionUpdater()
+    }
+
+    private fun selectAudio(audioRecording: AudioRecording) {
+        _selectedItem.value = audioRecording
+    }
+
+    fun showDeleteDialog(audioRecording: AudioRecording) {
+        selectAudio(audioRecording)
+        _showDeleteDialog.value = true
+    }
+
+    fun hideDeleteDialog() {
+        _showDeleteDialog.value = false
+    }
+
+    fun deleteSelected() {
+        val audioRecording = _selectedItem.value ?: return
+        if (playbackStateFlow.value.activeAudio == audioRecording) {
+            stopPlaying()
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            audioRecordingRepository.deleteAudioRecording(audioRecording)
+            hideDeleteDialog()
+        }
     }
 
     private fun startPositionUpdater() {
@@ -107,7 +143,10 @@ class RecordListViewModel @Inject constructor(
     sealed interface RecordListScreenUiState {
         data object Loading : RecordListScreenUiState
         data class Ready(
-            val recordList: List<AudioRecording>, val playbackState: PlaybackState = PlaybackState()
+            val recordList: List<AudioRecording>,
+            val playbackState: PlaybackState = PlaybackState(),
+            val selectedAudio: AudioRecording? = null,
+            val showDeleteDialog: Boolean = false,
         ) : RecordListScreenUiState
     }
 }

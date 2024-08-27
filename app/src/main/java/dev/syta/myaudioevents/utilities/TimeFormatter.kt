@@ -17,8 +17,8 @@ fun formatDuration(millis: Int): String {
     }.trim()
 }
 
-fun formatMillisToReadableDate(millis: Long): String {
+fun formatMillisToReadableDate(millis: Long, format: String = "yyyy-MM-dd HH:mm:ss"): String {
     val date = Date(millis)
-    val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    val formatter = SimpleDateFormat(format, Locale.getDefault())
     return formatter.format(date)
 }

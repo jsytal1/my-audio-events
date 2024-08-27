@@ -18,4 +18,7 @@ interface AudioRecordingDao {
 
     @Update
     suspend fun updateAudioRecording(recording: AudioRecordingEntity)
+
+    @Query("DELETE FROM audio_recordings WHERE id = :id")
+    suspend fun deleteAudioRecording(id: Int)
 }

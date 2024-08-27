@@ -10,12 +10,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Filter
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 
 object MaeIcons {
+    val MoreVert = Icons.Filled.MoreVert
     val Delete = Icons.Filled.Delete
     val Edit = Icons.Filled.Edit
     val Label = Icons.AutoMirrored.Filled.Label

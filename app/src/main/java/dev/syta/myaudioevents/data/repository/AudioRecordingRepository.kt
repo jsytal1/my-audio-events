@@ -26,6 +26,7 @@ interface AudioRecordingRepository {
     suspend fun updateFromFile(audioRecording: AudioRecording)
     suspend fun createFromFiles(filesDir: File, assets: AssetManager)
     suspend fun createFromFile(file: File)
+    suspend fun deleteAudioRecording(audioRecording: AudioRecording)
 }
 
 class AudioRecordingRepositoryImpl(
@@ -53,6 +54,14 @@ class AudioRecordingRepositoryImpl(
             timestampMillis = timestampMillis,
         )
         audioRecordingDao.insertAudioRecording(audioRecording.asInternalModel())
+    }
+
+    override suspend fun deleteAudioRecording(audioRecording: AudioRecording) {
+        val file = File(audioRecording.filePath)
+        if (file.exists()) {
+            file.delete()
+        }
+        audioRecordingDao.deleteAudioRecording(audioRecording.id)
     }
 
     override suspend fun updateFromFile(audioRecording: AudioRecording) {
