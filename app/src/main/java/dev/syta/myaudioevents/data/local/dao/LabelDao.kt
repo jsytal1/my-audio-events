@@ -16,4 +16,7 @@ interface LabelDao {
 
     @Upsert
     fun upsertLabelEntity(label: LabelEntity)
+
+    @Query("DELETE FROM label WHERE id = :id")
+    fun deleteLabelEntity(id: Int)
 }

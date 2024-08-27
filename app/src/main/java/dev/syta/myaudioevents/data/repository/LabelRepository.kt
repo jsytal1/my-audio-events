@@ -14,6 +14,10 @@ interface LabelRepository {
     fun getLabels(ids: Set<String>): Flow<List<Label>>
 
     fun addLabel(label: Label)
+
+    fun editLabel(label: Label)
+
+    fun deleteLabel(id: Int)
 }
 
 class OfflineFirstLabelRepository(private val labelDao: LabelDao) : LabelRepository {
@@ -25,5 +29,13 @@ class OfflineFirstLabelRepository(private val labelDao: LabelDao) : LabelReposit
 
     override fun addLabel(label: Label) {
         labelDao.upsertLabelEntity(label.asInternalModel())
+    }
+
+    override fun editLabel(label: Label) {
+        labelDao.upsertLabelEntity(label.asInternalModel())
+    }
+
+    override fun deleteLabel(id: Int) {
+        labelDao.deleteLabelEntity(id)
     }
 }
