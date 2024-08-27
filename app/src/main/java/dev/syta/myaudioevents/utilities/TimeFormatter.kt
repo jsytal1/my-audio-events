@@ -1,5 +1,9 @@
 package dev.syta.myaudioevents.utilities
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 fun formatDuration(millis: Int): String {
     val totalSeconds = millis / 1000
     val hours = totalSeconds / 3600
@@ -11,4 +15,10 @@ fun formatDuration(millis: Int): String {
         if (minutes > 0 || hours > 0) append("${minutes}m ")
         append("${seconds}s")
     }.trim()
+}
+
+fun formatMillisToReadableDate(millis: Long): String {
+    val date = Date(millis)
+    val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    return formatter.format(date)
 }
