@@ -3,7 +3,8 @@ package dev.syta.myaudioevents.data.repository
 import android.content.res.AssetManager
 import android.util.Log
 import dev.syta.myaudioevents.data.local.dao.AudioRecordingDao
-import dev.syta.myaudioevents.data.local.entities.AudioRecordingEntity
+import dev.syta.myaudioevents.data.local.entities.AudioRecordingLabelCrossRef
+import dev.syta.myaudioevents.data.local.entities.PopulatedAudioRecording
 import dev.syta.myaudioevents.data.local.entities.asExternalModel
 import dev.syta.myaudioevents.data.local.entities.asInternalModel
 import dev.syta.myaudioevents.data.model.AudioRecording
@@ -27,6 +28,8 @@ interface AudioRecordingRepository {
     suspend fun createFromFiles(filesDir: File, assets: AssetManager)
     suspend fun createFromFile(file: File)
     suspend fun deleteAudioRecording(audioRecording: AudioRecording)
+    suspend fun addLabelToRecording(audioRecording: AudioRecording, labelId: Int)
+    suspend fun removeLabelFromRecording(audioRecording: AudioRecording, labelId: Int)
 }
 
 class AudioRecordingRepositoryImpl(
@@ -34,8 +37,8 @@ class AudioRecordingRepositoryImpl(
 ) : AudioRecordingRepository {
 
     override fun getAudioRecordings(): Flow<List<AudioRecording>> =
-        audioRecordingDao.getAllAudioRecordings()
-            .map { it.map(AudioRecordingEntity::asExternalModel) }
+        audioRecordingDao.getPopulatedAudioRecordings()
+            .map { it.map(PopulatedAudioRecording::asExternalModel) }
 
     override suspend fun insertAudioRecording(audioRecording: AudioRecording) =
         audioRecordingDao.insertAudioRecording(audioRecording.asInternalModel())
@@ -47,11 +50,12 @@ class AudioRecordingRepositoryImpl(
         val (fileSize, duration) = getFileMetadata(filePath)
         val formatedTimestamp = formatMillisToReadableDate(timestampMillis)
         val audioRecording = AudioRecording(
-            filePath = filePath,
             name = "Audio Recording $formatedTimestamp",
-            sizeBytes = fileSize.toInt(),
-            durationMillis = duration.toInt(),
+            filePath = filePath,
             timestampMillis = timestampMillis,
+            durationMillis = duration.toInt(),
+            sizeBytes = fileSize.toInt(),
+            labels = emptyList()
         )
         audioRecordingDao.insertAudioRecording(audioRecording.asInternalModel())
     }
@@ -62,6 +66,16 @@ class AudioRecordingRepositoryImpl(
             file.delete()
         }
         audioRecordingDao.deleteAudioRecording(audioRecording.id)
+    }
+
+    override suspend fun addLabelToRecording(audioRecording: AudioRecording, labelId: Int) {
+        audioRecordingDao.upsertAudioRecordingLabelCrossRefs(
+            listOf(AudioRecordingLabelCrossRef(audioRecording.id, labelId))
+        )
+    }
+
+    override suspend fun removeLabelFromRecording(audioRecording: AudioRecording, labelId: Int) {
+        audioRecordingDao.deleteAudioRecordingLabelCrossRefs(audioRecording.id, listOf(labelId))
     }
 
     override suspend fun updateFromFile(audioRecording: AudioRecording) {

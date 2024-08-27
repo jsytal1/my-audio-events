@@ -314,7 +314,8 @@ class AudioRecorderService : Service() {
             filePath = filePath,
             timestampMillis = timestampMillis,
             durationMillis = durationMillis,
-            sizeBytes = sizeBytes
+            sizeBytes = sizeBytes,
+            labels = emptyList()
         )
         audioRecordingRepository.insertAudioRecording(newRecording)
     }

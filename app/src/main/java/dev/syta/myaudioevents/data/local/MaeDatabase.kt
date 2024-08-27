@@ -14,6 +14,7 @@ import dev.syta.myaudioevents.data.local.dao.LabelDao
 import dev.syta.myaudioevents.data.local.entities.AudioClassAncestorCrossRef
 import dev.syta.myaudioevents.data.local.entities.AudioClassEntity
 import dev.syta.myaudioevents.data.local.entities.AudioRecordingEntity
+import dev.syta.myaudioevents.data.local.entities.AudioRecordingLabelCrossRef
 import dev.syta.myaudioevents.data.local.entities.LabelEntity
 import dev.syta.myaudioevents.workers.SeedDatabaseWorker
 
@@ -23,13 +24,12 @@ import dev.syta.myaudioevents.workers.SeedDatabaseWorker
         AudioClassAncestorCrossRef::class,
         AudioRecordingEntity::class,
         LabelEntity::class,
-    ], version = 1, exportSchema = true
+        AudioRecordingLabelCrossRef::class,
+    ], autoMigrations = [], version = 1, exportSchema = true
 )
 abstract class MaeDatabase : RoomDatabase() {
     abstract fun audioClassDao(): AudioClassDao
-
     abstract fun audioRecordingDao(): AudioRecordingDao
-
     abstract fun labelDao(): LabelDao
 
     companion object {

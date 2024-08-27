@@ -1,11 +1,16 @@
 package dev.syta.myaudioevents.ui.screens.record_list
 
+import android.content.Context
 import android.media.MediaPlayer
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.syta.myaudioevents.data.model.AudioRecording
+import dev.syta.myaudioevents.data.model.Label
 import dev.syta.myaudioevents.data.repository.AudioRecordingRepository
+import dev.syta.myaudioevents.data.repository.LabelRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +23,24 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RecordListViewModel @Inject constructor(
-    private val audioRecordingRepository: AudioRecordingRepository
+    private val audioRecordingRepository: AudioRecordingRepository,
+    private val labelRepository: LabelRepository,
+    @ApplicationContext private val applicationContext: Context
+
 ) : ViewModel() {
     private var player = MediaPlayer()
     private val playbackStateFlow = MutableStateFlow(PlaybackState())
     private val _selectedItem = MutableStateFlow<AudioRecording?>(null)
     private val _showDeleteDialog = MutableStateFlow(false)
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            audioRecordingRepository.createFromFiles(
+                assets = applicationContext.assets,
+                filesDir = applicationContext.filesDir
+            )
+        }
+    }
 
     override fun onCleared() {
         super.onCleared()
@@ -35,7 +52,8 @@ class RecordListViewModel @Inject constructor(
         playbackStateFlow,
         _selectedItem,
         _showDeleteDialog,
-    ) { recordList, playbackState, selectedAudio, showDeleteDialog ->
+        labelRepository.getLabels()
+    ) { recordList, playbackState, selectedAudio, showDeleteDialog, labelList ->
         if (recordList.isEmpty()) {
             RecordListScreenUiState.Loading
         } else {
@@ -43,12 +61,32 @@ class RecordListViewModel @Inject constructor(
                 recordList,
                 playbackState,
                 selectedAudio,
-                showDeleteDialog
+                showDeleteDialog,
+                labelList
             )
         }
     }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), RecordListScreenUiState.Loading
     )
+
+    fun addLabelToRecording(audioRecording: AudioRecording, label: Label) {
+        Log.d("RecordListViewModel", "addLabelToRecording: $audioRecording, $label")
+        viewModelScope.launch(Dispatchers.IO) {
+            audioRecordingRepository.addLabelToRecording(
+                labelId = label.id,
+                audioRecording = audioRecording
+            )
+        }
+    }
+
+    fun removeLabelFromRecording(audioRecording: AudioRecording, label: Label) {
+        viewModelScope.launch(Dispatchers.IO) {
+            audioRecordingRepository.removeLabelFromRecording(
+                labelId = label.id,
+                audioRecording = audioRecording
+            )
+        }
+    }
 
     fun play(audioRecording: AudioRecording) {
         player.apply {
@@ -147,6 +185,7 @@ class RecordListViewModel @Inject constructor(
             val playbackState: PlaybackState = PlaybackState(),
             val selectedAudio: AudioRecording? = null,
             val showDeleteDialog: Boolean = false,
+            val labelList: List<Label>,
         ) : RecordListScreenUiState
     }
 }

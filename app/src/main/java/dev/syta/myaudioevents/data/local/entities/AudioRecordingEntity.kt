@@ -24,6 +24,7 @@ fun AudioRecordingEntity.asExternalModel() = AudioRecording(
     timestampMillis = timestampMillis,
     durationMillis = durationMillis,
     sizeBytes = sizeBytes,
+    labels = emptyList(),
 )
 
 fun AudioRecording.asInternalModel() = AudioRecordingEntity(

@@ -5,20 +5,26 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -40,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.syta.myaudioevents.R
 import dev.syta.myaudioevents.data.model.AudioRecording
+import dev.syta.myaudioevents.data.model.Label
 import dev.syta.myaudioevents.designsystem.icon.MaeIcons
 import dev.syta.myaudioevents.ui.MaeSharedViewModel
 import dev.syta.myaudioevents.ui.screens.label_list.ConfirmDialog
@@ -77,40 +84,36 @@ fun RecordListScreenContent(
             RecordList(
                 recordingList = uiState.recordList,
                 playbackState = uiState.playbackState,
+                labelList = uiState.labelList,
                 viewModel = viewModel,
             )
             if (uiState.showDeleteDialog) {
-                ConfirmDialog(
-                    title = stringResource(R.string.delete),
+                ConfirmDialog(title = stringResource(R.string.delete),
                     message = { Text(stringResource(R.string.confirm_delete_item)) },
                     onDismiss = viewModel::hideDeleteDialog,
                     onConfirm = {
                         viewModel.deleteSelected()
-                        viewModel.hideDeleteDialog() n
-                    }
-                )
+                        viewModel.hideDeleteDialog()
+                    })
             }
         }
     }
 }
 
-@Composable
-fun DeleteDialog(onDismiss: () -> Unit, onDelete: () -> Unit) {
-
-}
-
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecordList(
     recordingList: List<AudioRecording>,
     playbackState: RecordListViewModel.PlaybackState,
     viewModel: RecordListViewModel,
+    labelList: List<Label>,
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(recordingList) { recording ->
+        items(recordingList, key = { it.id }) { recording ->
             val isActive = playbackState.activeAudio == recording
+
             RecordingCard(
                 recording = recording,
                 isActive = isActive,
@@ -119,9 +122,12 @@ fun RecordList(
                 togglePlay = { if (isActive) viewModel.togglePlay() },
                 showDeleteDialog = { viewModel.showDeleteDialog(recording) },
                 progress = {
-                    if (recording.durationMillis == 0) 0f else
-                        playbackState.currentPosition.toFloat() / recording.durationMillis
-                }
+                    if (recording.durationMillis == 0) 0f else playbackState.currentPosition.toFloat() / recording.durationMillis
+                },
+                labelList = labelList,
+                addLabel = { label -> viewModel.addLabelToRecording(recording, label) },
+                removeLabel = { label -> viewModel.removeLabelFromRecording(recording, label) },
+                modifier = Modifier.animateItemPlacement(),
             )
         }
     }
@@ -136,9 +142,13 @@ fun RecordingCard(
     onPlay: () -> Unit,
     togglePlay: () -> Unit,
     showDeleteDialog: () -> Unit,
+    addLabel: (label: Label) -> Unit,
+    removeLabel: (label: Label) -> Unit,
+    modifier: Modifier = Modifier,
+    labelList: List<Label> = emptyList(),
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -174,22 +184,19 @@ fun RecordingCard(
                         )
                         Text(
                             text = formatMillisToReadableDate(
-                                recording.timestampMillis,
-                                "MMM dd, HH:mm:ss"
+                                recording.timestampMillis, "MMM dd, HH:mm:ss"
                             ),
                             style = MaterialTheme.typography.labelSmall,
                         )
 
                     }
                 }
-                IconButton(
-                    onClick = {
-                        when {
-                            isActive -> togglePlay()
-                            else -> onPlay()
-                        }
+                IconButton(onClick = {
+                    when {
+                        isActive -> togglePlay()
+                        else -> onPlay()
                     }
-                ) {
+                }) {
                     Icon(
                         imageVector = when {
                             isPlaying -> MaeIcons.Pause
@@ -202,6 +209,12 @@ fun RecordingCard(
                     showDeleteDialog = showDeleteDialog,
                 )
             }
+            LabelPicker(
+                labelList = labelList,
+                selectedLabels = recording.labels,
+                addLabel = addLabel,
+                removeLabel = removeLabel,
+            )
             AnimatedVisibility(
                 visible = isActive,
                 enter = fadeIn() + expandVertically(),
@@ -223,32 +236,82 @@ fun RecordingCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun LabelPicker(
+    labelList: List<Label>,
+    addLabel: (label: Label) -> Unit,
+    removeLabel: (label: Label) -> Unit,
+    selectedLabels: List<Label>
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        labelList.forEach { label ->
+            val selected = selectedLabels.contains(label)
+            FilterChip(
+                label = { Text(label.name) },
+                selected = selected,
+                onClick = {
+                    if (selected) {
+                        removeLabel(label)
+                    } else {
+                        addLabel(label)
+                    }
+                },
+                leadingIcon = if (selected) {
+                    {
+                        Icon(
+                            imageVector = MaeIcons.Check,
+                            contentDescription = "Check icon",
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                } else {
+                    null
+                },
+
+                )
+        }
+    }
+}
+
+@Preview
+@Composable
+fun LabelPickerPreview() {
+    LabelPicker(
+        labelList = listOf(
+            Label(id = 0, name = "Label 1"),
+            Label(id = 1, name = "Label 2"),
+            Label(id = 2, name = "Label 3"),
+        ),
+        selectedLabels = listOf(
+            Label(id = 0, name = "Label 1"),
+            Label(id = 2, name = "Label 3"),
+        ),
+        addLabel = {},
+        removeLabel = {},
+    )
+}
+
 @Composable
 fun MoreMenu(showDeleteDialog: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
-            .wrapContentSize(Alignment.TopStart)
+        modifier = Modifier.wrapContentSize(Alignment.TopStart)
     ) {
         IconButton(onClick = { expanded = !expanded }) {
             Icon(
-                imageVector = MaeIcons.MoreVert,
-                contentDescription = "More"
+                imageVector = MaeIcons.MoreVert, contentDescription = "More"
             )
         }
 
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("Delete") },
-                onClick = {
-                    expanded = false
-                    showDeleteDialog()
-                }
-            )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("Delete") }, onClick = {
+                expanded = false
+                showDeleteDialog()
+            })
         }
     }
 
@@ -279,13 +342,24 @@ fun ActiveRecordingCardPreview() {
             timestampMillis = 0,
             durationMillis = 10000,
             sizeBytes = 1000,
+            labels = listOf(
+                Label(id = 0, name = "Label 1"),
+                Label(id = 1, name = "Label 2"),
+            )
         ),
         isActive = true,
         isPlaying = true,
         progress = { 0.5f },
         onPlay = {},
         togglePlay = {},
-        showDeleteDialog = {}
+        showDeleteDialog = {},
+        labelList = listOf(
+            Label(id = 0, name = "Label 1"),
+            Label(id = 1, name = "Label 2"),
+            Label(id = 2, name = "Label 3"),
+        ),
+        addLabel = {},
+        removeLabel = {},
     )
 }
 
@@ -301,6 +375,10 @@ fun InactiveRecordingCardPreview() {
             timestampMillis = 0,
             durationMillis = 10000,
             sizeBytes = 1000,
+            labels = listOf(
+                Label(id = 0, name = "Label 1"),
+                Label(id = 1, name = "Label 2"),
+            )
         ),
         isActive = false,
         isPlaying = false,
@@ -308,5 +386,12 @@ fun InactiveRecordingCardPreview() {
         onPlay = {},
         togglePlay = {},
         showDeleteDialog = {},
+        labelList = listOf(
+            Label(id = 0, name = "Label 1"),
+            Label(id = 1, name = "Label 2"),
+            Label(id = 2, name = "Label 3"),
+        ),
+        addLabel = {},
+        removeLabel = {},
     )
 }
