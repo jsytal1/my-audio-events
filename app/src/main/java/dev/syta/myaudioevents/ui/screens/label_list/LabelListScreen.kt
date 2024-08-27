@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.syta.myaudioevents.R
@@ -93,7 +94,9 @@ fun AddLabelDialog(onDismiss: () -> Unit, onConfirm: (value: String) -> Unit) {
 
 @Composable
 fun LabelList(labelList: List<Label>) {
-    LazyColumn {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         items(labelList) { label ->
             ListItem(
                 name = label.name,
@@ -104,10 +107,10 @@ fun LabelList(labelList: List<Label>) {
 
 @Composable
 fun ListItem(name: String) {
-    Card(
-        modifier = Modifier.padding(8.dp)
-    ) {
-        Row {
+    Card {
+        Row(
+            modifier = Modifier.padding(16.dp)
+        ) {
             Text(
                 modifier = Modifier.weight(1f),
                 text = name
@@ -115,6 +118,28 @@ fun ListItem(name: String) {
         }
     }
 }
+
+@Preview
+@Composable
+fun ListItemPreview() {
+    ListItem(
+        name = "Label 1"
+    )
+}
+
+@Preview
+@Composable
+fun LabelListPreview() {
+    LabelList(
+        labelList = listOf(
+            Label("Label 1"),
+            Label("Label 2"),
+            Label("Label 3"),
+        )
+    )
+}
+
+
 
 @Composable
 fun LabelsScreenContent(
